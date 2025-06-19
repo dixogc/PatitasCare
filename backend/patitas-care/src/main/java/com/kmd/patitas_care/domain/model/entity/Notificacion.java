@@ -1,9 +1,13 @@
 package com.kmd.patitas_care.domain.model.entity;
 
+import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
+@Table(name = "notificaciones")
 public class Notificacion {
     private String id;
+    private Cliente cliente;
     private String usuarioId;
     private String mensaje;
     private LocalDateTime fechaEnvio;

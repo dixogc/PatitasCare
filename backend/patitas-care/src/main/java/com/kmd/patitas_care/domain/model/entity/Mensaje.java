@@ -1,9 +1,15 @@
 package com.kmd.patitas_care.domain.model.entity;
 
+import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
+@Table(name = "mensajes")
 public class Mensaje {
+
     private String id;
+    private Cliente cliente;
+    private Veterinario veterinario;
     private String remitenteId;
     private String destinatarioId;
     private String contenido;

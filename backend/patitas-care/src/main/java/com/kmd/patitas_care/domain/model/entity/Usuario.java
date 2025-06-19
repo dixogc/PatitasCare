@@ -1,12 +1,20 @@
 package com.kmd.patitas_care.domain.model.entity;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
+import jakarta.persistence.*;
 
+@Entity
+@Inheritance(strategy = InheritanceType.JOINED)
 public abstract class Usuario {
+    @Id
     private String id;
+    @Column(nullable = false)
     private String nombre;
+    @Column(nullable = false, unique = true)
     private String correo;
+    @Column(nullable = false)
     private String passwordHash;
+    @Enumerated(EnumType.STRING)
     private TipoDeUsuario tipo;
 
     protected Usuario() {
@@ -26,15 +34,8 @@ public abstract class Usuario {
     public String getCorreo(){
         return correo;
     }
+    public String getPasswordHash(){ return passwordHash;}
     public TipoDeUsuario getTipo(){ return tipo;}
-
-    public boolean esCorreoValido() {
-        if(correo == null || correo.trim().isEmpty()) return false;
-        return correo.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
-    }
-    public boolean puedeSerRegistrado() {
-        return nombre != null && !nombre.trim().isEmpty() && esCorreoValido();
-    }
 
     public abstract static class UsuarioBuilder<T extends UsuarioBuilder<T>>{
         protected String id;

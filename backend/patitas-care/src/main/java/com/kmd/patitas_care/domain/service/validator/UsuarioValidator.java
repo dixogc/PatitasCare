@@ -1,7 +1,6 @@
 package com.kmd.patitas_care.domain.service.validator;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
-import com.kmd.patitas_care.domain.repository.UsuarioRepository;
 
 import java.util.regex.Pattern;
 
