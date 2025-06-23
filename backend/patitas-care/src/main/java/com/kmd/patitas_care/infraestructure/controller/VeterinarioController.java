@@ -81,12 +81,12 @@ public class VeterinarioController {
                     schema = @Schema(implementation = RegistroVeterinarioRequestDTO.class)
             )
     )RegistroVeterinarioRequestDTO dto){
-        try {
-            Veterinario veterinario = usuarioService.registrarVeterinario((dto.getNombre()), dto.getCorreo(), dto.getPassword(), dto.getTipoDeUsuario());
-            VeterinarioResponseDTO response = veterinarioMapper.toResponseDTO(veterinario);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        }catch (IllegalStateException | IllegalArgumentException e){
-            return ResponseEntity.badRequest().build();        }
+        Veterinario veterinario = usuarioService.registrarVeterinario(
+                dto.getNombre(), dto.getCorreo(), dto.getPassword(), dto.getTipoDeUsuario());
+
+        VeterinarioResponseDTO response = veterinarioMapper.toResponseDTO(veterinario);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
 

@@ -10,9 +10,7 @@ import com.kmd.patitas_care.domain.service.UsuarioDomainService;
 import com.kmd.patitas_care.domain.service.validator.UsuarioValidator;
 import com.kmd.patitas_care.infraestructure.dto.request.cliente.ActualizarClienteRequestDTO;
 import com.kmd.patitas_care.infraestructure.dto.request.veterinario.ActualizarVeterinarioRequestDTO;
-import com.kmd.patitas_care.infraestructure.exception.BadRequestException;
 import com.kmd.patitas_care.infraestructure.exception.EmailAlreadyExistsException;
-import com.kmd.patitas_care.infraestructure.exception.ResourceNotFoundException;
 import com.kmd.patitas_care.infraestructure.exception.UserNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -116,10 +114,11 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
                 veterinarioExistente.getPasswordHash();
 
         Veterinario veterinarioActualizado = new Veterinario.VeterinarioBuilder()
+                .setId(id)
                 .setNombre(dto.getNombre())
                 .setCorreo(dto.getCorreo())
                 .setPasswordHash(passwordHash)
-                .setTipo(TipoDeUsuario.CLIENTE)
+                .setTipo(TipoDeUsuario.VETERINARIO)
                 .build();
 
         veterinarioRepository.guardar(veterinarioActualizado);

@@ -1,17 +1,17 @@
 package com.kmd.patitas_care.domain.model.entity;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
-import jakarta.persistence.CascadeType;
+import com.kmd.patitas_care.domain.repository.Autenticable;
 import jakarta.persistence.Entity;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 
 @Entity
-public class Veterinario extends Usuario {
+public class Veterinario extends Usuario implements Autenticable, UserDetails {
 //    @OneToMany(mappedBy = "veterinario", cascade = CascadeType.ALL, orphanRemoval = true)
 //    private List<Clinica> clinicas;
 //    @OneToMany(mappedBy = "veterinario", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -30,6 +30,41 @@ public class Veterinario extends Usuario {
 //        this.citas = citas != null ? new ArrayList<>(citas) : new ArrayList<>();
 //        this.consultas = consultas != null ? new ArrayList<>(consultas) : new ArrayList<>();
 //        this.mensajes = mensajes != null ? new ArrayList<>(mensajes) : new ArrayList<>();
+    }
+
+    @Override
+    public String getUsername() {
+        return this.getNombre();
+    }
+
+    @Override
+    public String getPassword() {
+        return this.getPasswordHash();
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_VETERINARIO"));
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
     }
 
 //    public List<Clinica> getClinicas(){

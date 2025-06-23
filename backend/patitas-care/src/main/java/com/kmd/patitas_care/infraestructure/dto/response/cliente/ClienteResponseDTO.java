@@ -3,10 +3,12 @@ package com.kmd.patitas_care.infraestructure.dto.response.cliente;
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @AllArgsConstructor
 @NoArgsConstructor
+@Data
 @Schema(description = "Respuesta tras registrar al usuario tipo cliente exitosamente")
 public class ClienteResponseDTO {
 
@@ -18,14 +20,4 @@ public class ClienteResponseDTO {
     private String correo;
     @Schema(description = "Tipo de cuenta del usuario", example = "CLIENTE")
     private TipoDeUsuario tipo;
-
-    public String getId() {return id;}
-    public String getNombre(){return nombre;}
-    public String getCorreo(){return correo;}
-    public TipoDeUsuario getTipo(){return tipo;}
-
-    public void setId(String id) {this.id = id;}
-    public void setNombre(String nombre) {this.nombre = nombre;}
-    public void setCorreo(String correo) {this.correo = correo;}
-    public void setTipo(TipoDeUsuario tipo) {this.tipo = tipo;}
 }

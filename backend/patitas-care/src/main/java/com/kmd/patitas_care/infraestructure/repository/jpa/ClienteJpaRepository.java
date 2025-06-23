@@ -4,9 +4,11 @@ import com.kmd.patitas_care.domain.model.entity.Cliente;
 import com.kmd.patitas_care.domain.model.entity.Veterinario;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ClienteJpaRepository extends JpaRepository<Cliente, String> {
     Optional<Cliente> findByCorreo(String correo);
+    List<Cliente> findAll();
 
 }

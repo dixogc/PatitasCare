@@ -2,7 +2,13 @@ package com.kmd.patitas_care.domain.model.entity;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Inheritance(strategy = InheritanceType.JOINED)
 public abstract class Usuario {
@@ -17,25 +23,6 @@ public abstract class Usuario {
     @Enumerated(EnumType.STRING)
     private TipoDeUsuario tipo;
 
-    protected Usuario() {
-    }
-    protected Usuario(String id, String nombre, String correo, String passwordHash, TipoDeUsuario tipo) {
-        this.id = id;
-        this.nombre = nombre;
-        this.correo = correo;
-        this.passwordHash = passwordHash;
-        this.tipo = tipo;
-    }
-
-    public String getId(){ return id;}
-    public String getNombre(){
-        return nombre;
-    }
-    public String getCorreo(){
-        return correo;
-    }
-    public String getPasswordHash(){ return passwordHash;}
-    public TipoDeUsuario getTipo(){ return tipo;}
 
     public abstract static class UsuarioBuilder<T extends UsuarioBuilder<T>>{
         protected String id;

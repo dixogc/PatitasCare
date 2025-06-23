@@ -2,10 +2,7 @@ package com.kmd.patitas_care.infraestructure.dto.request.cliente;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
@@ -28,7 +25,7 @@ public class RegistroClienteRequestDTO {
     private String password;
 
     @Schema(description = "Tipo de usuario en el sistema", example = "ClIENTE")
-//    @NotEmpty(message = "El tipo de usuario es obligatorio")
+    @NotNull(message = "El tipo de usuario es obligatorio")
     private TipoDeUsuario tipoDeUsuario;
 
 }

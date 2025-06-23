@@ -1,16 +1,19 @@
 package com.kmd.patitas_care.domain.model.entity;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
-import jakarta.persistence.CascadeType;
+import com.kmd.patitas_care.domain.repository.Autenticable;
 import jakarta.persistence.Entity;
-import jakarta.persistence.OneToMany;
+import lombok.Data;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
+
 
 @Entity
-public class Cliente extends Usuario {
+public class Cliente extends Usuario implements Autenticable, UserDetails {
 //    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
 //    private List<Mascota> mascotas;
 //    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -30,6 +33,42 @@ public class Cliente extends Usuario {
 //        this.notificaciones = notificaciones != null ? new ArrayList<>(notificaciones) : new ArrayList<>();
 //        this.mensajes = mensajes != null ? new ArrayList<>(mensajes) : new ArrayList<>();
     }
+
+    @Override
+    public String getUsername() {
+        return this.getNombre(); // o el campo que uses como username
+    }
+
+    @Override
+    public String getPassword() {
+        return this.getPasswordHash();
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_CLIENTE"));
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
 
 //    public List<Mascota> getMascotas(){
 //        return mascotas != null ? Collections.unmodifiableList(mascotas) : Collections.emptyList();

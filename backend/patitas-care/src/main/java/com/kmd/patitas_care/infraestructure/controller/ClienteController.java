@@ -83,13 +83,12 @@ public class ClienteController {
                     )
             )RegistroClienteRequestDTO dto
     ){
-        try {
-            Cliente cliente = usuarioService.registrarCliente(dto.getNombre(), dto.getCorreo(), dto.getPassword(), dto.getTipoDeUsuario());
-            ClienteResponseDTO response = clienteMapper.toResponseDTO(cliente);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        }catch (IllegalStateException | IllegalArgumentException e){
-            return ResponseEntity.badRequest().build();
-        }
+        Cliente veterinario = usuarioService.registrarCliente(
+                dto.getNombre(), dto.getCorreo(), dto.getPassword(), dto.getTipoDeUsuario());
+
+        ClienteResponseDTO response = clienteMapper.toResponseDTO(veterinario);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @Operation(
@@ -126,12 +125,12 @@ public class ClienteController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Actualizar datos del veterinario")
+    @Operation(summary = "Actualizar datos del cliente")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Veterinario actualizado"),
-            @ApiResponse(responseCode = "404", description = "Veterinario no encontrado")
+            @ApiResponse(responseCode = "200", description = "Cliente actualizado"),
+            @ApiResponse(responseCode = "404", description = "Cliente no encontrado")
     })
-    public ResponseEntity<ClienteResponseDTO> actualizarVeterinario(
+    public ResponseEntity<ClienteResponseDTO> actualizarCliente(
             @PathVariable String id,
             @Valid @RequestBody ActualizarClienteRequestDTO dto
     ) {

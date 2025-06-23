@@ -24,16 +24,16 @@ public class ErrorResponse {
     private int statusCode;
 
     @Schema(description = "Código de error específico", example = "EMAIL_ALREADY_EXISTS")
-    private String errorCode; // Nuevo campo importante
+    private String errorCode;
 
     @Schema(description = "Timestamp del error", example = "2024-12-20T10:30:00Z")
     private LocalDateTime timestamp;
 
     @Schema(description = "Path de la petición", example = "/api/usuarios")
-    private String path; // Útil para debugging
+    private String path;
 
     @Schema(description = "Detalles de errores de validación")
-    private List<FieldError> fieldErrors; // Para errores de validación
+    private List<FieldError> fieldErrors;
 
     @Data
     @Builder

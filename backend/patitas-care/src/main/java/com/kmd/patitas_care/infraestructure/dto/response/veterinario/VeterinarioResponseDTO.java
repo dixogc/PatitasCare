@@ -2,8 +2,14 @@ package com.kmd.patitas_care.infraestructure.dto.response.veterinario;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Schema(description = "Respuesta tras registrar al usuario tipo cliente exitosamente")
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+@Schema(description = "Respuesta tras registrar al usuario tipo veterinario exitosamente")
 public class VeterinarioResponseDTO {
 
     @Schema(description = "ID único del veterinario", example = "19c5a3f1-233e-428d-bb71-f3ce95b7d50e")
@@ -18,13 +24,4 @@ public class VeterinarioResponseDTO {
     @Schema(description = "Tipo de cuenta del usuario", example = "VETERINARIO")
     private TipoDeUsuario tipo;
 
-    public String getId() {return id;}
-    public String getNombre(){return nombre;}
-    public String getCorreo(){return correo;}
-    public TipoDeUsuario getTipo(){return tipo;}
-
-    public void setId(String id) {this.id = id;}
-    public void setNombre(String nombre) {this.nombre = nombre;}
-    public void setCorreo(String correo) {this.correo = correo;}
-    public void setTipo(TipoDeUsuario tipo) {this.tipo = tipo;}
 }
