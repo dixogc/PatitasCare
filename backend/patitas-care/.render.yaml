@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: mi-veterinaria-api
-    env: java
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/*.jar
-    envVars:
-      - key: PORT
-        value: 10000

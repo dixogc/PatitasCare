@@ -1,0 +1,28 @@
+# Usar OpenJDK 17 (o la versión que uses)
+FROM openjdk:17-jdk-slim
+
+# Instalar Maven (necesario para el build)
+RUN apt-get update && apt-get install -y maven
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración Maven
+COPY pom.xml .
+COPY mvnw .
+COPY .mvn .mvn
+
+# Hacer ejecutable el Maven wrapper
+RUN chmod +x mvnw
+
+# Copiar código fuente
+COPY src src
+
+# Compilar la aplicación
+RUN ./mvnw clean package -DskipTests
+
+# Exponer el puerto (Render usa PORT como variable de entorno)
+EXPOSE $PORT
+
+# Comando para ejecutar la aplicación
+CMD ["java", "-jar", "target/*.jar"]
