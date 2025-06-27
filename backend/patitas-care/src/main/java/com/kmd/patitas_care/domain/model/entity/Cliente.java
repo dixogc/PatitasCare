@@ -36,7 +36,7 @@ public class Cliente extends Usuario implements Autenticable, UserDetails {
 
     @Override
     public String getUsername() {
-        return this.getNombre(); // o el campo que uses como username
+        return this.getCorreo();
     }
 
     @Override

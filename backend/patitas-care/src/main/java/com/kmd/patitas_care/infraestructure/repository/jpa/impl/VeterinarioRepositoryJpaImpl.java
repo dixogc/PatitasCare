@@ -1,8 +1,8 @@
-package com.kmd.patitas_care.infraestructure.repository.jpa;
+package com.kmd.patitas_care.infraestructure.repository.jpa.impl;
 
-import com.kmd.patitas_care.domain.model.entity.Usuario;
 import com.kmd.patitas_care.domain.model.entity.Veterinario;
 import com.kmd.patitas_care.domain.repository.VeterinarioRepository;
+import com.kmd.patitas_care.infraestructure.repository.jpa.VeterinarioJpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;

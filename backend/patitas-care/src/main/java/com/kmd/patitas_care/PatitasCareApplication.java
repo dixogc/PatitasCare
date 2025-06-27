@@ -11,10 +11,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
 @EntityScan(basePackages = {
-		"com.kmd.patitas_care.domain.model.entity" // Aquí están Cliente y Veterinario
+		"com.kmd.patitas_care.domain.model.entity"
 })
 @EnableJpaRepositories(basePackages = {
-		"com.kmd.patitas_care.infraestructure.repository.jpa" // Aquí están ClienteJpaRepository y VeterinarioJpaRepository
+		"com.kmd.patitas_care.infraestructure.repository.jpa",
+		"com.kmd.patitas_care.infraestructure.repository.jpa.impl"
+
+})
+@ComponentScan(basePackages = {
+		"com.kmd.patitas_care"
 })
 public class PatitasCareApplication {
 

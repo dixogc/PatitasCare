@@ -9,6 +9,7 @@ import com.kmd.patitas_care.infraestructure.security.JwtUtil;
 import com.kmd.patitas_care.infraestructure.dto.request.AuthRequest;
 import com.kmd.patitas_care.infraestructure.dto.response.AuthResponse;
 import com.kmd.patitas_care.infraestructure.exception.InvalidPasswordException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -52,6 +53,22 @@ public class AuthService {
 
         Optional<Veterinario> veterinario = veterinarioRepository.buscarPorCorreo(correo);
         return veterinario.orElse(null);
+    }
+
+    public String obtenerClienteDesdeToken(HttpServletRequest request){
+            String token = extraerToken(request);
+            String email = jwtUtil.extractUsername(token);
+            Cliente cliente = clienteRepository.buscarPorCorreo(email)
+                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+            return cliente.getId();
+    }
+
+    private String extraerToken(HttpServletRequest request){
+        String authHeader = request.getHeader("Authorization");
+        if(authHeader != null && authHeader.startsWith("Bearer ")){
+            return authHeader.substring(7);
+        }
+        throw new RuntimeException("Token no encontrado");
     }
 
 }

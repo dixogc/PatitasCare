@@ -14,7 +14,7 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
     private static final String SECRET_KEY = "clave-super-secreta-para-jwt-que-tiene-mas-de-32-caracteres";
-    private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 10; // 10 horas
+    private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 10;
 
     private Key getSignInKey() {
         return Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8));

@@ -44,7 +44,7 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/h2-console/**"
                         ).permitAll()
-                        // CORRECCIÓN: Mascotas requieren autenticación
+                        .requestMatchers("/mascotas/mis-mascotas/**").authenticated()
                         .requestMatchers("/mascotas/**").authenticated()
                         .anyRequest().authenticated()
                 )
