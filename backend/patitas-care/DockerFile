@@ -1,7 +1,7 @@
-# Usar OpenJDK 17 (o la versión que uses)
+# Usar OpenJDK 17
 FROM openjdk:17-jdk-slim
 
-# Instalar Maven (necesario para el build)
+# Instalar Maven
 RUN apt-get update && apt-get install -y maven
 
 # Establecer directorio de trabajo
@@ -21,8 +21,8 @@ COPY src src
 # Compilar la aplicación
 RUN ./mvnw clean package -DskipTests
 
-# Exponer el puerto (Render usa PORT como variable de entorno)
-EXPOSE $PORT
+# Exponer puerto (usar número fijo aquí)
+EXPOSE 8080
 
-# Comando para ejecutar la aplicación
-CMD ["java", "-jar", "target/*.jar"]
+# Encontrar y ejecutar el JAR dinámicamente
+CMD ["sh", "-c", "java -Dserver.port=$PORT -jar target/*.jar"]

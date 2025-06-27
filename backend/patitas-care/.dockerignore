@@ -1,9 +1,35 @@
+# Directorios de build (se regeneran durante el build)
 target/
-!target/*.jar
+
+# Git
 .git
 .gitignore
+
+# Documentación
 README.md
+*.md
+
+# Docker files
 Dockerfile
 .dockerignore
-node_modules
+
+# Logs
 *.log
+logs/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.eclipse/
+.settings/
+.project
+.classpath
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
