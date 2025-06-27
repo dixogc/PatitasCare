@@ -1,9 +1,14 @@
 package com.kmd.patitas_care.infraestructure.controller;
 
+import com.kmd.patitas_care.application.service.impl.AuthService;
+import com.kmd.patitas_care.application.service.impl.MascotaServiceImpl;
 import com.kmd.patitas_care.application.service.impl.UsuarioServiceImpl;
 import com.kmd.patitas_care.domain.model.entity.Cliente;
+import com.kmd.patitas_care.domain.service.MascotaService;
 import com.kmd.patitas_care.infraestructure.dto.request.cliente.ActualizarClienteRequestDTO;
+import com.kmd.patitas_care.infraestructure.dto.request.cliente.PerfilClienteDTO;
 import com.kmd.patitas_care.infraestructure.dto.request.cliente.RegistroClienteRequestDTO;
+import com.kmd.patitas_care.infraestructure.dto.response.MascotaResponseDTO;
 import com.kmd.patitas_care.infraestructure.dto.response.cliente.ClienteResponseDTO;
 import com.kmd.patitas_care.infraestructure.exception.ErrorResponse;
 import com.kmd.patitas_care.infraestructure.mapper.ClienteMapper;
@@ -14,11 +19,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/cliente")
@@ -28,10 +36,17 @@ public class ClienteController {
     private final UsuarioServiceImpl usuarioService;
     @Autowired
     private final ClienteMapper clienteMapper;
+    @Autowired
+    private final MascotaServiceImpl mascotaService;
+    @Autowired
+    private final AuthService authService;
 
-    public ClienteController(UsuarioServiceImpl usuarioService, ClienteMapper clienteMapper){
+    public ClienteController(UsuarioServiceImpl usuarioService, ClienteMapper clienteMapper,
+                             MascotaServiceImpl mascotaService, AuthService authService){
         this.usuarioService = usuarioService;
         this.clienteMapper = clienteMapper;
+        this.mascotaService = mascotaService;
+        this.authService = authService;
     }
 
 
@@ -166,4 +181,22 @@ public class ClienteController {
         usuarioService.eliminarCliente(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/perfil")
+    public ResponseEntity<PerfilClienteDTO> obtenerPerfil(HttpServletRequest request) {
+        String clienteId = authService.obtenerClienteDesdeToken(request);
+
+        Cliente cliente = usuarioService.buscarClientePorId(clienteId);
+        List<MascotaResponseDTO> mascotas = mascotaService.obtenerMascotasPorCliente(clienteId);
+
+        PerfilClienteDTO perfil = new PerfilClienteDTO(
+                cliente.getId(),
+                cliente.getNombre(),
+                cliente.getCorreo(),
+                mascotas
+        );
+
+        return ResponseEntity.ok(perfil);
+    }
+
 }

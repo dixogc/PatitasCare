@@ -76,7 +76,6 @@ public class MascotaServiceImpl implements MascotaService {
         Mascota mascota = mascotaRepositoryJpa.findById(mascotaId)
                 .orElseThrow(() -> new RuntimeException("Mascota no encontrada"));
 
-        // Verificar que la mascota pertenece al cliente
         if (!mascota.getCliente().getId().equals(clienteId)) {
             throw new RuntimeException("No tienes permiso para ver esta mascota");
         }

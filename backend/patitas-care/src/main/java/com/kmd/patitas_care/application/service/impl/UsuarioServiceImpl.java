@@ -9,13 +9,16 @@ import com.kmd.patitas_care.domain.repository.VeterinarioRepository;
 import com.kmd.patitas_care.domain.service.UsuarioDomainService;
 import com.kmd.patitas_care.domain.service.validator.UsuarioValidator;
 import com.kmd.patitas_care.infraestructure.dto.request.cliente.ActualizarClienteRequestDTO;
+import com.kmd.patitas_care.infraestructure.dto.request.cliente.PerfilClienteDTO;
 import com.kmd.patitas_care.infraestructure.dto.request.veterinario.ActualizarVeterinarioRequestDTO;
+import com.kmd.patitas_care.infraestructure.dto.response.MascotaResponseDTO;
 import com.kmd.patitas_care.infraestructure.exception.EmailAlreadyExistsException;
 import com.kmd.patitas_care.infraestructure.exception.UserNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -70,6 +73,7 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
         return veterinarioRepository.buscarPorId(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
     }
+
 
     @Override
     public Cliente actualizarCliente(String id, ActualizarClienteRequestDTO dto) {
@@ -140,6 +144,18 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
         }
         veterinarioRepository.eliminarPorId(id);
     }
+
+    public PerfilClienteDTO obtenerPerfilCliente(String clienteId) {
+        Cliente cliente = clienteRepository.buscarPorId(clienteId)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+
+        List<MascotaResponseDTO> mascotasDTO = cliente.getMascotas().stream()
+                .map(m -> new MascotaResponseDTO(m.getId(), m.getCliente().getId(),m.getNombre(), m.getEspecie(), m.getRaza(), m.getEdad()))
+                .toList();
+
+        return new PerfilClienteDTO(cliente.getId(),cliente.getNombre(), cliente.getCorreo(), mascotasDTO);
+    }
+
     //    @Override
 //    public List<Cliente> obtenerTodosLosClientes() {
 //        return clienteRepository.obtenerTodos();

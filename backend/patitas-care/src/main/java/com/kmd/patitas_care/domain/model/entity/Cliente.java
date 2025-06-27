@@ -2,20 +2,24 @@ package com.kmd.patitas_care.domain.model.entity;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
 import com.kmd.patitas_care.domain.repository.Autenticable;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.OneToMany;
 import lombok.Data;
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 
 @Entity
 public class Cliente extends Usuario implements Autenticable, UserDetails {
-//    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
-//    private List<Mascota> mascotas;
+    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Mascota> mascotas;
 //    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
 //    private List<Cita> citas;
 //    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -32,6 +36,10 @@ public class Cliente extends Usuario implements Autenticable, UserDetails {
 //        this.citas = citas != null ? new ArrayList<>(citas) : new ArrayList<>();
 //        this.notificaciones = notificaciones != null ? new ArrayList<>(notificaciones) : new ArrayList<>();
 //        this.mensajes = mensajes != null ? new ArrayList<>(mensajes) : new ArrayList<>();
+    }
+
+    public List<Mascota> getMascotas() {
+        return mascotas;
     }
 
     @Override
