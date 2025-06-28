@@ -50,8 +50,8 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/h2-console/**"
                         ).permitAll()
-                        .requestMatchers("/mascotas/mis-mascotas/**").authenticated()
                         .requestMatchers("/mascotas/**").authenticated()
+                        .requestMatchers("/citas/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .headers(h -> h.frameOptions().disable())
