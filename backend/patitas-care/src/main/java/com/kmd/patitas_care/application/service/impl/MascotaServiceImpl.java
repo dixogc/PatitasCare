@@ -21,7 +21,7 @@ public class MascotaServiceImpl implements MascotaService {
     private final ClienteRepository clienteRepository;
     private final MascotaMapper mapper;
 
-    public MascotaServiceImpl(@Lazy MascotaRepositoryJpa mascotaRepositoryJpa, ClienteRepository clienteRepository,
+    public MascotaServiceImpl(MascotaRepositoryJpa mascotaRepositoryJpa, ClienteRepository clienteRepository,
                               MascotaMapper mapper){
         this.mascotaRepositoryJpa = mascotaRepositoryJpa;
         this.clienteRepository = clienteRepository;

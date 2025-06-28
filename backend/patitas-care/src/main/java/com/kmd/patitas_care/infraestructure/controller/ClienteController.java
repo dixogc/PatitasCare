@@ -71,14 +71,6 @@ public class ClienteController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "400",
-                    description = "Datos de entrada inválidos o correo ya registrado",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)
-                    )
-            ),
-            @ApiResponse(
                     responseCode = "500",
                     description = "Error interno del servidor",
                     content = @Content(

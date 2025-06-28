@@ -147,7 +147,7 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
 
     public PerfilClienteDTO obtenerPerfilCliente(String clienteId) {
         Cliente cliente = clienteRepository.buscarPorId(clienteId)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Cliente no encontrado"));
 
         List<MascotaResponseDTO> mascotasDTO = cliente.getMascotas().stream()
                 .map(m -> new MascotaResponseDTO(m.getId(), m.getCliente().getId(),m.getNombre(), m.getEspecie(), m.getRaza(), m.getEdad()))

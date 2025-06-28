@@ -5,6 +5,7 @@ import com.kmd.patitas_care.domain.model.entity.Veterinario;
 import com.kmd.patitas_care.domain.repository.Autenticable;
 import com.kmd.patitas_care.domain.repository.ClienteRepository;
 import com.kmd.patitas_care.domain.repository.VeterinarioRepository;
+import com.kmd.patitas_care.infraestructure.exception.UserNotFoundException;
 import com.kmd.patitas_care.infraestructure.security.JwtUtil;
 import com.kmd.patitas_care.infraestructure.dto.request.AuthRequest;
 import com.kmd.patitas_care.infraestructure.dto.response.AuthResponse;
@@ -59,7 +60,7 @@ public class AuthService {
             String token = extraerToken(request);
             String email = jwtUtil.extractUsername(token);
             Cliente cliente = clienteRepository.buscarPorCorreo(email)
-                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+                    .orElseThrow(() -> new UserNotFoundException("Cliente no encontrado"));
             return cliente.getId();
     }
 
