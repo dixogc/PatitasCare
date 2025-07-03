@@ -16,6 +16,9 @@ public class MascotaMapper {
                 .especie(dto.getEspecie())
                 .raza(dto.getRaza())
                 .edad(dto.getEdad())
+                .peso(dto.getPeso())
+                .size(dto.getSize())
+                .color(dto.getColor())
                 .build();
     }
     public Mascota toEntityForUpdate(MascotaRequestDTO dto, String id, Cliente cliente){
@@ -26,6 +29,9 @@ public class MascotaMapper {
                 .especie(dto.getEspecie())
                 .raza(dto.getRaza())
                 .edad(dto.getEdad())
+                .peso(dto.getPeso())
+                .size(dto.getSize())
+                .color(dto.getColor())
                 .build();
     }
     public MascotaResponseDTO toResponseDTO(Mascota mascota){
@@ -35,7 +41,10 @@ public class MascotaMapper {
                 mascota.getNombre(),
                 mascota.getEspecie(),
                 mascota.getRaza(),
-                mascota.getEdad()
+                mascota.getEdad(),
+                mascota.getPeso(),
+                mascota.getSize(),
+                mascota.getColor()
         );
     }
 }

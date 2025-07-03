@@ -28,4 +28,14 @@ public class MascotaRequestDTO {
     @Schema(description = "Edad de la mascota en años", example = "3", required = true)
     @Min(0)
     private int edad;
+
+    @Schema(description = "Peso de la mascota", example = "2.5", required = true)
+    private int peso;
+
+    @Schema(description = "Tamaño de la mascota", example = "50", required = true)
+    private int size;
+
+    @Schema(description = "Color de la mascota", example = "Negro", required = true)
+    @NotBlank
+    private String color;
 }
