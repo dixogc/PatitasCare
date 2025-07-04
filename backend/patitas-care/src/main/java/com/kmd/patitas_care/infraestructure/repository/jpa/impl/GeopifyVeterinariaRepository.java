@@ -17,7 +17,7 @@ public class GeopifyVeterinariaRepository implements VeterinariaRepository {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final String GEO_API = "${GEO_API}";
+    private static final String GEO_API = System.getenv("GEO_API");
     private static final String GEOAPIFY_URL = "https://api.geoapify.com/v2/places";
 
     public GeopifyVeterinariaRepository(RestTemplate restTemplate, ObjectMapper objectMapper) {
