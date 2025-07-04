@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.kmd.patitas_care.domain.model.entity.Veterinaria;
 import com.kmd.patitas_care.domain.repository.VeterinariaRepository;
 import com.kmd.patitas_care.domain.service.VeterinariaService;
+import com.kmd.patitas_care.utils.GeolocationUtils;
 import org.springframework.http.*;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.client.RestTemplate;
@@ -20,14 +21,12 @@ import java.util.List;
 public class OverpassVeterinariaRepository implements VeterinariaRepository {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-    private final VeterinariaService veterinariaService;
 
     private static final String OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
-    public OverpassVeterinariaRepository(RestTemplate restTemplate, ObjectMapper objectMapper, VeterinariaService veterinariaService) {
+    public OverpassVeterinariaRepository(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
-        this.veterinariaService = veterinariaService;
     }
 
     @Override
@@ -71,8 +70,7 @@ public class OverpassVeterinariaRepository implements VeterinariaRepository {
                 String horario = extraerCampo(tags, "opening_hours");
                 String tipo = extraerCampo(tags, "amenity");
 
-                double distancia = veterinariaService.calcularDistancia(latitud, longitud, lat, lon);
-
+                double distancia = GeolocationUtils.calcularDistancia(latitud, longitud, lat, lon);
                 Veterinaria veterinaria = new Veterinaria(
                         nombre, direccion, lat, lon, telefono, horario, distancia, tipo
                 );
