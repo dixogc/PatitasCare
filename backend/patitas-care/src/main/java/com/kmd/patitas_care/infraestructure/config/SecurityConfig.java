@@ -1,5 +1,6 @@
 package com.kmd.patitas_care.infraestructure.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmd.patitas_care.infraestructure.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +15,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -52,6 +54,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/mascotas/**").authenticated()
                         .requestMatchers("/citas/**").authenticated()
+                        .requestMatchers("/veterinarias/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .headers(h -> h.frameOptions().disable())
@@ -88,6 +91,16 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 
 }
