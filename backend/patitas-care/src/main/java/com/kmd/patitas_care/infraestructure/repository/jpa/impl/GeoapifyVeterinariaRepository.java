@@ -55,7 +55,7 @@ public class GeoapifyVeterinariaRepository implements VeterinariaRepository {
     private String construirUrl(double latitud, double longitud, int radioKm) {
         int radioMetros = radioKm * 1000;
         return String.format(
-                "%s?categories=healthcare.veterinary&filter=circle:%f,%f,%d&bias=proximity:%f,%f&limit=20&apiKey=%s",
+                "%s?categories=pet.veterinary&filter=circle:%f,%f,%d&bias=proximity:%f,%f&limit=20&apiKey=%s",
                 GEOAPIFY_URL, longitud, latitud, radioMetros, longitud, latitud, geoApiKey
         );
     }
