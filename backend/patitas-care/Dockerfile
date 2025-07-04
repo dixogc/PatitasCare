@@ -22,7 +22,7 @@ COPY src src
 RUN ./mvnw clean package -DskipTests
 
 # Exponer puerto (usar número fijo aquí)
-EXPOSE 8081
+EXPOSE 8080
 
 # Encontrar y ejecutar el JAR dinámicamente
 CMD ["sh", "-c", "java -Dserver.port=$PORT -jar target/*.jar"]
