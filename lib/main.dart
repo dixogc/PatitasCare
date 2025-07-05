@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'registro_page.dart';
+import 'login_page.dart';
 
 void main() {
   runApp(const PatitasCareApp());
@@ -84,9 +85,21 @@ class WelcomeScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 30),
-          const Text(
-            '¿Ya tienes una cuenta? Inicia sesión',
-            style: TextStyle(color: Colors.grey),
+          // Cambia esta parte para que sea clickeable
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+              );
+            },
+            child: const Text(
+              '¿Ya tienes una cuenta? Inicia sesión',
+              style: TextStyle(
+                color: Colors.grey,
+                decoration: TextDecoration.underline,
+              ),
+            ),
           ),
         ],
       ),

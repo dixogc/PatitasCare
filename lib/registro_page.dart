@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'main.dart';
 
 class RegistroPage extends StatefulWidget {
   const RegistroPage({super.key});
@@ -58,7 +59,12 @@ class _RegistroPageState extends State<RegistroPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('¡Registro exitoso!')));
-        Navigator.pop(context);
+        //Regresa a la pantalla principal para iniciar sesión
+        Navigator.pushAndRemoveUntil(
+          context,
+        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          (route) => false,
+        );
       } else {
         ScaffoldMessenger.of(
           context,
