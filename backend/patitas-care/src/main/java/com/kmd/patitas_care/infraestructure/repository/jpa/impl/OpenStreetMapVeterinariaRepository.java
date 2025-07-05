@@ -3,6 +3,7 @@ package com.kmd.patitas_care.infraestructure.repository.jpa.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmd.patitas_care.domain.model.entity.Veterinaria;
+import com.kmd.patitas_care.domain.model.entity.enums.ContextoBusqueda;
 import com.kmd.patitas_care.domain.repository.VeterinariaRepository;
 import com.kmd.patitas_care.utils.GeolocationUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,27 +26,64 @@ public class OpenStreetMapVeterinariaRepository implements VeterinariaRepository
     private final ObjectMapper objectMapper;
     private static final String OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
+    private static final int RADIO_DEFAULT_KM = 5;
+    private static final int RADIO_MIN_KM = 1;
+    private static final int RADIO_MAX_KM = 20;
+
     public OpenStreetMapVeterinariaRepository(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }
 
     @Override
+    public List<Veterinaria> buscarVeterinariosCercanos(double latitud, double longitud) {
+        return buscarVeterinariosCercanos(latitud, longitud, RADIO_DEFAULT_KM);
+    }
+
     public List<Veterinaria> buscarVeterinariosCercanos(double latitud, double longitud, int radioKm) {
+        radioKm = Math.max(RADIO_MIN_KM, Math.min(radioKm, RADIO_MAX_KM));
+
         try {
             String query = construirQuery(latitud, longitud, radioKm);
-            log.info("Consultando OpenStreetMap con query: {}", query);
+            log.info("Consultando OpenStreetMap con radio {}km: {}", radioKm, query);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.TEXT_PLAIN);
             HttpEntity<String> request = new HttpEntity<>(query, headers);
 
             String response = restTemplate.postForObject(OVERPASS_URL, request, String.class);
-            return procesarRespuesta(response, latitud, longitud);
+            List<Veterinaria> veterinarias = procesarRespuesta(response, latitud, longitud);
+
+            if (veterinarias.isEmpty() && radioKm < RADIO_MAX_KM) {
+                log.info("No se encontraron veterinarias en radio {}km, expandiendo búsqueda", radioKm);
+                return buscarVeterinariosCercanos(latitud, longitud, Math.min(radioKm * 2, RADIO_MAX_KM));
+            }
+
+            return veterinarias;
 
         } catch (Exception e) {
             log.error("Error consultando OpenStreetMap", e);
             throw new RuntimeException("Error al consultar OpenStreetMap: " + e.getMessage(), e);
+        }
+    }
+
+    public List<Veterinaria> buscarVeterinariosConContexto(double latitud, double longitud, ContextoBusqueda contexto) {
+        int radio = determinarRadioPorContexto(contexto);
+        return buscarVeterinariosCercanos(latitud, longitud, radio);
+    }
+
+    private int determinarRadioPorContexto(ContextoBusqueda contexto) {
+        switch (contexto) {
+            case EMERGENCIA:
+                return 3; // Radio menor para emergencias
+            case RUTINA:
+                return 5; // Radio estándar
+            case ESPECIALISTA:
+                return 10; // Radio mayor para especialistas
+            case ZONA_RURAL:
+                return 15; // Radio amplio para zonas rurales
+            default:
+                return RADIO_DEFAULT_KM;
         }
     }
 
@@ -132,11 +170,9 @@ public class OpenStreetMapVeterinariaRepository implements VeterinariaRepository
     }
 
     private double obtenerLatitud(JsonNode element) {
-        // Para nodos, lat está directamente disponible
         if (element.has("lat")) {
             return element.get("lat").asDouble();
         }
-        // Para ways y relations, usar center si está disponible
         if (element.has("center") && element.get("center").has("lat")) {
             return element.get("center").get("lat").asDouble();
         }
@@ -144,11 +180,9 @@ public class OpenStreetMapVeterinariaRepository implements VeterinariaRepository
     }
 
     private double obtenerLongitud(JsonNode element) {
-        // Para nodos, lon está directamente disponible
         if (element.has("lon")) {
             return element.get("lon").asDouble();
         }
-        // Para ways y relations, usar center si está disponible
         if (element.has("center") && element.get("center").has("lon")) {
             return element.get("center").get("lon").asDouble();
         }
@@ -158,33 +192,29 @@ public class OpenStreetMapVeterinariaRepository implements VeterinariaRepository
     private String construirDireccion(JsonNode tags) {
         StringBuilder direccion = new StringBuilder();
 
-        // Número de casa
         String numero = obtenerTextoSeguro(tags, "addr:housenumber");
         if (!numero.equals("No disponible")) {
             direccion.append(numero).append(" ");
         }
 
-        // Calle
         String calle = obtenerTextoSeguro(tags, "addr:street");
         if (!calle.equals("No disponible")) {
             direccion.append(calle);
         }
 
-        // Colonia/Barrio
         String colonia = obtenerTextoSeguro(tags, "addr:suburb");
         if (!colonia.equals("No disponible")) {
-            if (direccion.length() > 0) direccion.append(", ");
+            if (!direccion.isEmpty()) direccion.append(", ");
             direccion.append(colonia);
         }
 
-        // Ciudad
         String ciudad = obtenerTextoSeguro(tags, "addr:city");
         if (!ciudad.equals("No disponible")) {
-            if (direccion.length() > 0) direccion.append(", ");
+            if (!direccion.isEmpty()) direccion.append(", ");
             direccion.append(ciudad);
         }
 
-        return direccion.length() > 0 ? direccion.toString() : "Dirección no disponible";
+        return !direccion.isEmpty() ? direccion.toString() : "Dirección no disponible";
     }
 
     private String obtenerTextoSeguro(JsonNode node, String path) {
@@ -195,7 +225,6 @@ public class OpenStreetMapVeterinariaRepository implements VeterinariaRepository
     }
 
     private String determinarTipo(JsonNode tags) {
-        // Revisar si hay información específica sobre el tipo de veterinaria
         if (tags.has("veterinary:treats:dogs") && tags.get("veterinary:treats:dogs").asText().equals("yes")) {
             if (tags.has("veterinary:treats:cats") && tags.get("veterinary:treats:cats").asText().equals("yes")) {
                 return "Veterinaria para perros y gatos";

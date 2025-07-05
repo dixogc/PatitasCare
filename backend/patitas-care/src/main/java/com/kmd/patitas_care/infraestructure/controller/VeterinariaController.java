@@ -49,21 +49,51 @@ public class VeterinariaController {
         }
     }
 
-    @PostMapping("/cercanas")
-    public ResponseEntity<?> buscarVeterinariosCercanosPost(@RequestBody BuscarVeterinariasRequest request) {
+    @GetMapping("/cercanas/rapida")
+    public ResponseEntity<?> buscarVeterinariosCercanosRapida(
+            @RequestParam double latitud,
+            @RequestParam double longitud
+    ) {
         try {
-            List<Veterinaria> veterinarias = buscarVeterinariasUseCase.ejecutar(
-                    request.getLatitud(),
-                    request.getLongitud(),
-                    request.getRadio()
-            );
+            List<Veterinaria> veterinarias = buscarVeterinariasUseCase.ejecutar(latitud, longitud);
 
             List<VeterinariaResponse> response = veterinarias.stream()
                     .map(mapper::toResponse)
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.warn("Parámetros inválidos: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error interno", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error interno del servidor"));
+        }
+    }
 
+    @PostMapping("/cercanas")
+    public ResponseEntity<?> buscarVeterinariosCercanosPost(@RequestBody BuscarVeterinariasRequest request) {
+        try {
+            List<Veterinaria> veterinarias;
+
+            if (request.getRadio() != null) {
+                veterinarias = buscarVeterinariasUseCase.ejecutar(
+                        request.getLatitud(),
+                        request.getLongitud(),
+                        request.getRadio()
+                );
+            } else {
+                veterinarias = buscarVeterinariasUseCase.ejecutar(
+                        request.getLatitud(),
+                        request.getLongitud()
+                );
+            }
+
+            List<VeterinariaResponse> response = veterinarias.stream()
+                    .map(mapper::toResponse)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             log.warn("Parámetros inválidos: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

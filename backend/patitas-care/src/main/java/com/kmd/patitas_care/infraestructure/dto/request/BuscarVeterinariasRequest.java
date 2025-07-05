@@ -12,5 +12,6 @@ import lombok.Setter;
 public class BuscarVeterinariasRequest {
     private double latitud;
     private double longitud;
-    private int radio = 10;
+    private Integer radio;
+    private String contexto;
 }

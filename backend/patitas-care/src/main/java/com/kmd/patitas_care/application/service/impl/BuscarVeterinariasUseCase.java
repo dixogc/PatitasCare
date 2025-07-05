@@ -16,4 +16,13 @@ public class BuscarVeterinariasUseCase {
     public List<Veterinaria> ejecutar(double latitud, double longitud, int radio) {
         return veterinariaService.obtenerVeterinariosCercanos(latitud, longitud, radio);
     }
+
+    public List<Veterinaria> ejecutar(double latitud, double longitud) {
+        return veterinariaService.obtenerVeterinariosCercanos(latitud, longitud);
+    }
+
+    public List<Veterinaria> ejecutarInteligente(double latitud, double longitud,
+                                                 Integer radio, String contexto) {
+        return veterinariaService.obtenerVeterinariosCercanosInteligente(latitud, longitud, radio, contexto);
+    }
 }
