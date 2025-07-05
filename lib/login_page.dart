@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'registro_page.dart';
 import 'main.dart';
+import 'veterinarias_mapa_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -290,24 +291,41 @@ class MainAppScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.pets, size: 80, color: Color(0XFFB6A9F8)),
-            SizedBox(height: 20),
-            Text(
+            const Icon(Icons.pets, size: 80, color: Color(0XFFB6A9F8)),
+            const SizedBox(height: 20),
+            const Text(
               '¡Bienvenido a Patitas Care!',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 10),
-            Text(
+            const SizedBox(height: 10),
+            const Text(
               'Aquí puedes acceder a todas las funciones de la app',
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const VeterinariasMapaPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.map),
+              label: const Text('Ver veterinarias cercanas'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0XFFB6A9F8),
+                foregroundColor: Colors.white,
+              ),
+            ),
           ],
         ),
-      ),
+      )
     );
   }
 }
