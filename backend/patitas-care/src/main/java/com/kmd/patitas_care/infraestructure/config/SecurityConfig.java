@@ -1,9 +1,13 @@
 package com.kmd.patitas_care.infraestructure.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kmd.patitas_care.domain.repository.VeterinariaRepository;
+import com.kmd.patitas_care.infraestructure.repository.jpa.impl.OpenStreetMapVeterinariaRepository;
 import com.kmd.patitas_care.infraestructure.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -95,12 +99,23 @@ public class SecurityConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10000); // 10 segundos para conectar
+        factory.setReadTimeout(30000);    // 30 segundos para leer (OSM puede tardar)
+
+        return new RestTemplate(factory);
     }
 
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
+    }
+
+    // Configuración de los repositorios de veterinarias
+    @Bean
+    @Primary // Este será el repository principal
+    public VeterinariaRepository veterinariaRepository(RestTemplate restTemplate, ObjectMapper objectMapper) {
+        return new OpenStreetMapVeterinariaRepository(restTemplate, objectMapper);
     }
 
 }
