@@ -13,7 +13,7 @@
     <application
 
         android:usesCleartextTraffic="true"
-        android:label="flutter_application_1"
+        android:label="Patitas Care"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
