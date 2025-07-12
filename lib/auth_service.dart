@@ -26,7 +26,7 @@ class AuthService {
 
     final body = jsonDecode(response.body);
 
-    // ✅ Guarda el token si existe en la respuesta
+    // Guarda el token si existe en la respuesta
     if (response.statusCode == 201 && body['token'] != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', body['token']);
