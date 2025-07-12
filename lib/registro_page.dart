@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'registro_mascota.dart';
 import 'package:http/http.dart' as http;
+import 'auth_service.dart';
 
 class RegistroPage extends StatefulWidget {
   const RegistroPage({super.key});
@@ -31,38 +33,40 @@ class _RegistroPageState extends State<RegistroPage> {
     String password,
     String tipoUsuario,
   ) async {
-    final baseUrl = 'https://patitas-care.onrender.com';
-
-    String endpoint;
-    if (tipoUsuario.toLowerCase() == 'cliente') {
-      endpoint = '$baseUrl/cliente/registro';
-    } else if (tipoUsuario.toLowerCase() == 'veterinario') {
-      endpoint = '$baseUrl/veterinario/registro';
-    } else {
-      throw Exception("Tipo de usuario no valido");
-    }
+    final authService = AuthService();
 
     try {
-      final response = await http.post(
-        Uri.parse(endpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'nombre': nombreController.text,
-          'correo': correoController.text,
-          'password': passwordController.text,
-          'tipoDeUsuario': rolSeleccionado,
-        }),
+      final result = await authService.registrarUsuario(
+        nombre: nombre,
+        correo: email,
+        password: password,
+        tipoUsuario: tipoUsuario,
       );
 
-      if (response.statusCode == 201) {
+      final status = result['status'];
+      final body = result['body'];
+
+      if (status == 201) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('¡Registro exitoso!')));
-        Navigator.pop(context);
+
+        if (tipoUsuario.toUpperCase() == 'CLIENTE') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RegistroMascotaPage(),
+            ),
+          );
+        } else {
+          Navigator.pop(context);
+        }
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${body['mensaje'] ?? body.toString()}'),
+          ),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(
