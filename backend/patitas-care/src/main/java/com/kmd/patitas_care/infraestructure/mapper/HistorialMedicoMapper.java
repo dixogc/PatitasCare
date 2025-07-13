@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class HistorialMedicoMapper {
+
     public HistorialMedico toEntity(HistorialMedicoRequest request) {
         return HistorialMedico.builder()
                 .mascotaId(request.getMascotaId())

@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface HistorialMedicoService {
+
     HistorialMedicoResponse crearHistorial(HistorialMedicoRequest request, String userEmail);
 
     HistorialMedicoResponse actualizarHistorial(String id, HistorialMedicoRequest request, String userEmail);
@@ -23,13 +24,7 @@ public interface HistorialMedicoService {
 
     List<HistorialMedicoResponse> obtenerHistorialPorMascotaYFechas(String mascotaId, LocalDate fechaInicio, LocalDate fechaFin, String userEmail);
 
-    List<HistorialMedicoResponse> obtenerHistorialPesoPorMascota(String mascotaId, String userEmail);
-
-    HistorialMedicoResponse obtenerUltimoPesoPorMascota(String mascotaId, String userEmail);
-
     void eliminarHistorial(String id, String userEmail);
 
     long contarHistorialPorMascota(String mascotaId, String userEmail);
-
-    long contarHistorialPorMascotaYTipo(String mascotaId, TipoEventoMedico tipo, String userEmail);
 }

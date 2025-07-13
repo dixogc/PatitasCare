@@ -112,4 +112,25 @@ public class MascotaServiceImpl implements MascotaService {
 
         mascotaRepositoryJpa.deleteById(mascotaId);
     }
+
+    @Override
+    public boolean mascotaPertenenceAlUsuario(String mascotaId, String userEmail) {
+        try {
+            // Buscar la mascota por ID
+            Mascota mascota = mascotaRepositoryJpa.findById(mascotaId)
+                    .orElse(null);
+
+            // Si no existe la mascota, retornar false
+            if (mascota == null) {
+                return false;
+            }
+
+            // Verificar que el email del cliente de la mascota coincide con el userEmail
+            return mascota.getCliente().getCorreo().equals(userEmail);
+
+        } catch (Exception e) {
+            // En caso de cualquier error, retornar false por seguridad
+            return false;
+        }
+    }
 }

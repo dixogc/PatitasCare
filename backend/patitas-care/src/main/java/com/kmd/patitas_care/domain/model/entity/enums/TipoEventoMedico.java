@@ -1,5 +1,8 @@
 package com.kmd.patitas_care.domain.model.entity.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum TipoEventoMedico {
     VACUNACION("Vacunación"),
     CONSULTA("Consulta"),
@@ -18,7 +21,4 @@ public enum TipoEventoMedico {
         this.descripcion = descripcion;
     }
 
-    public String getDescripcion() {
-        return descripcion;
-    }
 }

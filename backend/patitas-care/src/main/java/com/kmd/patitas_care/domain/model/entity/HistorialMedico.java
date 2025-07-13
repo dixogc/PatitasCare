@@ -3,17 +3,13 @@ package com.kmd.patitas_care.domain.model.entity;
 import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "historial_medico")
+@Data
 @Builder
-@Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class HistorialMedico {

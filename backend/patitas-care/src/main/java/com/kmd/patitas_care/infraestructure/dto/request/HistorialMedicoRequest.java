@@ -2,14 +2,20 @@ package com.kmd.patitas_care.infraestructure.dto.request;
 
 import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class HistorialMedicoRequest {
-    @NotNull(message = "El ID de la mascota es requerido")
-    @Positive(message = "El ID de la mascota debe ser un número positivo")
+
+    @NotBlank(message = "El ID de la mascota es requerido")
     private String mascotaId;
 
     @NotNull(message = "La fecha es requerida")
