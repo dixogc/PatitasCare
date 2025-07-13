@@ -3,10 +3,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:patitas_care/inicio_page.dart';
 import 'dart:convert';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'login_page.dart';
+import 'auth_service.dart';
 
 class VeterinariaResponse {
   final String nombre;
@@ -59,6 +60,10 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
   int _radioSeleccionado = 10;
   bool _vistaLista = false;
 
+  // Colores del tema de la app
+  final Color purple = const Color(0xFF8F88F2);
+  final Color yellow = const Color(0xFFF9DC5C);
+
   @override
   void initState() {
     super.initState();
@@ -81,20 +86,32 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Permiso de ubicación requerido'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Permiso de ubicación requerido',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: const Text(
           'Para mostrar veterinarias cercanas, necesitamos acceso a tu ubicación. Por favor, activa el permiso en la configuración.',
+          style: TextStyle(fontSize: 16),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               openAppSettings();
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: purple,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
             child: const Text('Configuración'),
           ),
         ],
@@ -127,7 +144,12 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al obtener ubicación: $e')),
+          SnackBar(
+            content: Text('Error al obtener ubicación: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     } finally {
@@ -148,16 +170,16 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
     });
 
     try {
-      // Verificar si hay token antes de hacer la petición
       final token = await AuthService.getToken();
       if (token == null || token.isEmpty) {
         print('ERROR: No se encontró token JWT');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Sesión expirada. Por favor, inicia sesión nuevamente.',
-              ),
+            SnackBar(
+              content: const Text('Sesión expirada. Por favor, inicia sesión nuevamente.'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
@@ -172,15 +194,10 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
           'radio=$_radioSeleccionado';
 
       print('URL de la petición: $url');
-      print('Token disponible: Sí');
 
-      // Usar el método authenticatedGet del AuthService
-      final response = await AuthService.authenticatedGet(
-        url,
-      ).timeout(const Duration(seconds: 15));
+      final response = await AuthService.authenticatedGet(url).timeout(const Duration(seconds: 15));
 
       print('Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -192,72 +209,23 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
               .toList();
         });
 
-        print('Veterinarias procesadas: ${_veterinarias.length}');
-
         if (_veterinarias.isEmpty) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'No se encontraron veterinarias en el radio seleccionado',
-                ),
+              SnackBar(
+                content: const Text('No se encontraron veterinarias en el radio seleccionado'),
+                backgroundColor: yellow,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             );
           }
         }
-      } else if (response.statusCode == 401) {
-        print('ERROR 401: Token inválido o expirado');
-        // Limpiar token expirado
-        await AuthService.removeToken();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Sesión expirada. Por favor, inicia sesión nuevamente.',
-              ),
-            ),
-          );
-        }
-        // Redirigir al login si tienes la ruta configurada
-        // Navigator.pushReplacementNamed(context, '/login');
-      } else if (response.statusCode == 403) {
-        print('ERROR 403: Acceso denegado');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'No tienes permisos para acceder a esta información.',
-              ),
-            ),
-          );
-        }
-      } else if (response.statusCode == 404) {
-        print('ERROR 404: Endpoint no encontrado');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Servicio no disponible. Verifica la URL.'),
-            ),
-          );
-        }
       } else {
-        print('ERROR: Status code ${response.statusCode}');
-        print('Response body: ${response.body}');
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Error al obtener veterinarias: ${response.statusCode}',
-              ),
-            ),
-          );
-        }
+        _handleErrorResponse(response);
       }
     } catch (e) {
       print('ERROR de conexión: $e');
-      print('Stack trace: ${StackTrace.current}');
-
       if (mounted) {
         String errorMessage = 'Error de conexión';
         if (e.toString().contains('TimeoutException')) {
@@ -266,14 +234,48 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
           errorMessage = 'Sin conexión a internet';
         }
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
       }
     } finally {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  void _handleErrorResponse(http.Response response) {
+    String message = 'Error desconocido';
+    switch (response.statusCode) {
+      case 401:
+        message = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+        AuthService.removeToken();
+        break;
+      case 403:
+        message = 'No tienes permisos para acceder a esta información.';
+        break;
+      case 404:
+        message = 'Servicio no disponible. Verifica la URL.';
+        break;
+      default:
+        message = 'Error al obtener veterinarias: ${response.statusCode}';
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -284,7 +286,12 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se puede realizar la llamada')),
+          SnackBar(
+            content: const Text('No se puede realizar la llamada'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     }
@@ -299,7 +306,12 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se puede abrir el mapa')),
+          SnackBar(
+            content: const Text('No se puede abrir el mapa'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     }
@@ -313,9 +325,9 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,90 +337,109 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: const Color(0xFFE8E8E8),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             Row(
               children: [
-                const Icon(
-                  Icons.local_hospital,
-                  color: Color(0xFFB6A9F8),
-                  size: 30,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: purple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.local_hospital,
+                    color: purple,
+                    size: 28,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     veterinaria.nombre,
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(height: 24),
             _buildDetailRow(Icons.location_on, veterinaria.direccion),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             _buildDetailRow(Icons.phone, veterinaria.telefono),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             _buildDetailRow(Icons.access_time, veterinaria.horario),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             _buildDetailRow(
               Icons.straighten,
               '${veterinaria.distancia.toStringAsFixed(1)} km',
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             _buildDetailRow(Icons.category, veterinaria.tipo),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 32),
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: () => _llamarVeterinaria(veterinaria.telefono),
-                    icon: const Icon(Icons.phone, color: Colors.white),
-                    label: const Text(
-                      'Llamar',
-                      style: TextStyle(color: Colors.white),
-                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB6A9F8),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: purple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(25),
                       ),
+                      elevation: 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.phone, size: 20),
+                        SizedBox(width: 8),
+                        Text('Llamar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: () => _abrirDirecciones(
                       veterinaria.latitud,
                       veterinaria.longitud,
                     ),
-                    icon: const Icon(Icons.directions, color: Colors.white),
-                    label: const Text(
-                      'Ir',
-                      style: TextStyle(color: Colors.white),
-                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB6A9F8),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: yellow,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(25),
                       ),
+                      elevation: 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.directions, size: 20),
+                        SizedBox(width: 8),
+                        Text('Ir', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -418,36 +449,70 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
   Widget _buildDetailRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.grey[600]),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 16))),
+        Icon(icon, size: 20, color: Colors.black54),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildRadioSelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8E8E8),
+        borderRadius: BorderRadius.circular(25),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('Radio: ', style: TextStyle(fontSize: 16)),
-          DropdownButton<int>(
-            value: _radioSeleccionado,
-            items: [5, 10, 15, 20].map((int value) {
-              return DropdownMenuItem<int>(
-                value: value,
-                child: Text('$value km'),
-              );
-            }).toList(),
-            onChanged: (int? newValue) {
-              if (newValue != null) {
-                setState(() {
-                  _radioSeleccionado = newValue;
-                });
-                _buscarVeterinarias();
-              }
-            },
+          const Text(
+            'Radio de búsqueda: ',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: DropdownButton<int>(
+              value: _radioSeleccionado,
+              underline: const SizedBox(),
+              items: [5, 10, 15, 20].map((int value) {
+                return DropdownMenuItem<int>(
+                  value: value,
+                  child: Text(
+                    '$value km',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (int? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _radioSeleccionado = newValue;
+                  });
+                  _buscarVeterinarias();
+                }
+              },
+            ),
           ),
         ],
       ),
@@ -456,7 +521,21 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
 
   Widget _buildMapa() {
     if (_currentPosition == null) {
-      return const Center(child: Text('Obteniendo ubicación...'));
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8F88F2)),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Obteniendo ubicación...',
+              style: TextStyle(fontSize: 16, color: Colors.black54),
+            ),
+          ],
+        ),
+      );
     }
 
     return FlutterMap(
@@ -475,32 +554,56 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
         ),
         MarkerLayer(
           markers: [
-            // Marcador de ubicación actual
             Marker(
-              width: 80.0,
-              height: 80.0,
+              width: 40.0,
+              height: 40.0,
               point: LatLng(
                 _currentPosition!.latitude,
                 _currentPosition!.longitude,
               ),
-              child: const Icon(
-                Icons.my_location,
-                color: Colors.blue,
-                size: 40,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.my_location,
+                  color: Colors.white,
+                  size: 30,
+                ),
               ),
             ),
-            // Marcadores de veterinarias
             ..._veterinarias.map((veterinaria) {
               return Marker(
-                width: 80.0,
-                height: 80.0,
+                width: 50.0,
+                height: 50.0,
                 point: LatLng(veterinaria.latitud, veterinaria.longitud),
                 child: GestureDetector(
                   onTap: () => _mostrarDetallesVeterinaria(veterinaria),
-                  child: const Icon(
-                    Icons.local_hospital,
-                    color: Color(0xFFB6A9F8),
-                    size: 40,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: purple,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: purple.withOpacity(0.3),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.local_hospital,
+                      color: Colors.white,
+                      size: 30,
+                    ),
                   ),
                 ),
               );
@@ -514,9 +617,20 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
   Widget _buildLista() {
     if (_veterinarias.isEmpty) {
       return const Center(
-        child: Text(
-          'No se encontraron veterinarias cercanas',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 80,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No se encontraron veterinarias cercanas',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
         ),
       );
     }
@@ -526,72 +640,117 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
       itemCount: _veterinarias.length,
       itemBuilder: (context, index) {
         final veterinaria = _veterinarias[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFFB6A9F8),
-              child: Icon(Icons.local_hospital, color: Colors.white),
-            ),
-            title: Text(
-              veterinaria.nombre,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(veterinaria.direccion),
-                const SizedBox(height: 4),
-                Text(
-                  '${veterinaria.distancia.toStringAsFixed(1)} km • ${veterinaria.tipo}',
-                  style: const TextStyle(color: Colors.grey),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _mostrarDetallesVeterinaria(veterinaria),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: purple.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.local_hospital,
+                        color: purple,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            veterinaria.nombre,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            veterinaria.direccion,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${veterinaria.distancia.toStringAsFixed(1)} km • ${veterinaria.tipo}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: purple,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'llamar':
+                            _llamarVeterinaria(veterinaria.telefono);
+                            break;
+                          case 'direcciones':
+                            _abrirDirecciones(
+                              veterinaria.latitud,
+                              veterinaria.longitud,
+                            );
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'llamar',
+                          child: Row(
+                            children: [
+                              Icon(Icons.phone, color: Colors.black54),
+                              SizedBox(width: 12),
+                              Text('Llamar'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'direcciones',
+                          child: Row(
+                            children: [
+                              Icon(Icons.directions, color: Colors.black54),
+                              SizedBox(width: 12),
+                              Text('Ir'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'llamar':
-                    _llamarVeterinaria(veterinaria.telefono);
-                    break;
-                  case 'direcciones':
-                    _abrirDirecciones(
-                      veterinaria.latitud,
-                      veterinaria.longitud,
-                    );
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'llamar',
-                  child: Row(
-                    children: [
-                      Icon(Icons.phone),
-                      SizedBox(width: 8),
-                      Text('Llamar'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'direcciones',
-                  child: Row(
-                    children: [
-                      Icon(Icons.directions),
-                      SizedBox(width: 8),
-                      Text('Ir'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            onTap: () => _mostrarDetallesVeterinaria(veterinaria),
           ),
         );
       },
@@ -602,55 +761,151 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFB6A9F8),
-        foregroundColor: Colors.white,
-        title: const Text('Veterinarias Cercanas'),
-        actions: [
-          IconButton(
-            icon: Icon(_vistaLista ? Icons.map : Icons.list),
-            onPressed: () {
-              setState(() {
-                _vistaLista = !_vistaLista;
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _buscarVeterinarias,
-          ),
-        ],
-      ),
-      body: Column(
+      body: Stack(
         children: [
-          _buildRadioSelector(),
-
-          if (_isLoading)
-            const LinearProgressIndicator(
-              backgroundColor: Colors.grey,
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB6A9F8)),
+          // Fondo decorativo
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                color: yellow.withOpacity(0.3),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(100),
+                ),
+              ),
             ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                color: yellow.withOpacity(0.3),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(75),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => InicioPage())
+                        ),
+                        icon: const Icon(Icons.arrow_back, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          'Veterinarias Cercanas',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: purple.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            _vistaLista ? Icons.map : Icons.list,
+                            color: purple,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _vistaLista = !_vistaLista;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: purple.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.refresh, color: purple),
+                          onPressed: _buscarVeterinarias,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-          Expanded(
-            child: _locationPermissionGranted
-                ? (_vistaLista ? _buildLista() : _buildMapa())
-                : const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.location_disabled,
-                          size: 80,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 20),
-                        Text(
-                          'Se necesita permiso de ubicación',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-                      ],
+                _buildRadioSelector(),
+
+                if (_isLoading)
+                  Container(
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: LinearProgressIndicator(
+                      backgroundColor: Colors.grey.withOpacity(0.3),
+                      valueColor: AlwaysStoppedAnimation<Color>(purple),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
+
+                Expanded(
+                  child: _locationPermissionGranted
+                      ? (_vistaLista ? _buildLista() : _buildMapa())
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.location_disabled,
+                                size: 80,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Se necesita permiso de ubicación',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: _requestLocationPermission,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: purple,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                ),
+                                child: const Text('Solicitar Permiso'),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

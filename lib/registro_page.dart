@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:patitas_care/login_page.dart';
 import 'registro_mascota.dart';
-import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegistroPage extends StatefulWidget {
   const RegistroPage({super.key});
@@ -27,43 +27,54 @@ class _RegistroPageState extends State<RegistroPage> {
     super.dispose();
   }
 
-  Future<void> registrarUsuario(
-    String nombre,
-    String email,
-    String password,
-    String tipoUsuario,
-  ) async {
-    final authService = AuthService();
+Future<void> registrarUsuario(
+  String nombre,
+  String email,
+  String password,
+  String tipoUsuario,
+) async {
+  try {
+    final result = await AuthService.registrarUsuario(
+      nombre: nombre,
+      correo: email,
+      password: password,
+      tipoUsuario: tipoUsuario,
+    );
 
-    try {
-      final result = await authService.registrarUsuario(
-        nombre: nombre,
-        correo: email,
-        password: password,
-        tipoUsuario: tipoUsuario,
+    final status = result['status'];
+    final body = result['body'];
+
+    if (status == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('¡Registro exitoso! Bienvenido'))
       );
-
-      final status = result['status'];
-      final body = result['body'];
-
-      if (status == 201) {
-        ScaffoldMessenger.of(
+      
+      // Si hay token, va directo a home
+      if (body['token'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', body['token']);
+        Navigator.pushReplacement(
           context,
-        ).showSnackBar(const SnackBar(content: Text('¡Registro exitoso!')));
-        Navigator.pop(context);
+          MaterialPageRoute(builder: (context) => const RegistroMascotaPage()),
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${body['mensaje'] ?? body.toString()}'),
-          ),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${body['mensaje'] ?? body.toString()}')),
+      );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error de conexión: $e'))
+    );
   }
+}
 
   bool _validarCampos() {
     if (nombreController.text.isEmpty ||

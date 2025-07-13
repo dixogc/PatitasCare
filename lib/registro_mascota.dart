@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:patitas_care/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'inicio_page.dart';
 
@@ -20,7 +21,7 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
   final TextEditingController colorController = TextEditingController();
 
   String? especieSeleccionado;
-  final List<String> especie = ['PERRO', 'GATO'];
+  final List<String> especie = ['Perro', 'Gato', 'Conejo', 'Tortuga', 'Otro'];
 
   @override
   void dispose() {
@@ -33,19 +34,30 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
     super.dispose();
   }
 
-  Future<void> registrarMascota() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+Future<void> registrarMascota() async {
+  // Validar campos primero
+  if (!_validarCampos()) {
+    return;
+  }
 
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Token no encontrado. Vuelve a iniciar sesión.'),
-        ),
-      );
-      return;
-    }
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
 
+  if (token == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Token no encontrado. Vuelve a iniciar sesión.'),
+      ),
+    );
+    // Redirigir al login si no hay token
+    Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+    return;
+  }
+
+  try {
     final baseUrl = 'https://patitas-care.onrender.com';
     final url = Uri.parse('$baseUrl/mascotas/mis-mascotas');
 
@@ -67,10 +79,16 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const InicioPage()),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('¡Mascota registrada exitosamente!')),
       );
+      
+      // Aquí decides a dónde ir después del registro exitoso
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const InicioPage()),
+        ); 
+      
     } else {
       final error = jsonDecode(response.body);
       showDialog(
@@ -87,7 +105,12 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
         ),
       );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error de conexión: $e')),
+    );
   }
+}
 
   bool _validarCampos() {
     if (nombreController.text.isEmpty ||

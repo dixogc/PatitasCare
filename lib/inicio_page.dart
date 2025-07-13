@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:patitas_care/calendario.dart';
+import 'package:patitas_care/lista_de_mascotas.dart';
+import 'package:patitas_care/veterinarias_mapa_page.dart';
 
 class InicioPage extends StatelessWidget {
   const InicioPage({super.key});
@@ -61,7 +64,7 @@ class HomePage extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        '“LA FELICIDAD ESTA\nMAS CERCA DE LO QUE\nIMAGINAS”',
+                        '"LA FELICIDAD ESTA\nMAS CERCA DE LO QUE\nIMAGINAS"',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -94,14 +97,46 @@ class HomePage extends StatelessWidget {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 children: [
-                  _buildTile('Mi Mascota', Icons.pets, purple),
-                  _buildTile('Agenda', Icons.calendar_month, yellow),
                   _buildTile(
+                    context,
+                    'Mi Mascota', 
+                    Icons.pets, 
+                    purple,
+                    () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => MyPetPage()),
+                    ),
+                  ),
+                  _buildTile(
+                    context,
+                    'Agenda', 
+                    Icons.calendar_month, 
+                    yellow,
+                    () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NotificacionCalendarPage()),
+                    ),  
+                  ),
+                  _buildTile(
+                    context,
                     'Historial\nmédico',
                     Icons.medical_services,
                     yellow,
+                    () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const VeterinariasMapaPage()),
+                    ),
                   ),
-                  _buildTile('Juguetes', Icons.sports_martial_arts, purple),
+                  _buildTile(
+                    context,
+                    'Mapa', 
+                    Icons.map, // Cambiado de sports_martial_arts a map
+                    purple,
+                    () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const VeterinariasMapaPage()),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -111,24 +146,27 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildTile(String title, IconData icon, Color color) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: Colors.black),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16),
-          ),
-        ],
+  Widget _buildTile(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 48, color: Colors.black),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ],
+        ),
       ),
     );
   }
