@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .requestMatchers("/mascotas/**").authenticated()
                         .requestMatchers("/citas/**").authenticated()
                         .requestMatchers("/veterinarias/**").authenticated()
+                        .requestMatchers("/historial-medico/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .headers(h -> h.frameOptions().disable())
