@@ -50,17 +50,7 @@ class _RegistroPageState extends State<RegistroPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('¡Registro exitoso!')));
-
-        if (tipoUsuario.toUpperCase() == 'CLIENTE') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const RegistroMascotaPage(),
-            ),
-          );
-        } else {
-          Navigator.pop(context);
-        }
+        Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

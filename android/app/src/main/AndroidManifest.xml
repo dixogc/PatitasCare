@@ -1,6 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+
+<!-- Permisos requeridos para la ubicación -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+<!-- Para hacer llamadas telefónicas -->
+<uses-permission android:name="android.permission.CALL_PHONE" />
+
     <application
-        android:label="flutter_application_1"
+
+        android:usesCleartextTraffic="true"
+        android:label="Patitas Care"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
