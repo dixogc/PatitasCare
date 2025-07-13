@@ -1,9 +1,11 @@
 package com.kmd.patitas_care.infraestructure.controller;
 
+import com.kmd.patitas_care.application.service.impl.AuthService;
 import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
 import com.kmd.patitas_care.domain.service.HistorialMedicoService;
 import com.kmd.patitas_care.infraestructure.dto.request.HistorialMedicoRequest;
 import com.kmd.patitas_care.infraestructure.dto.response.HistorialMedicoResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,141 +27,109 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class HistorialMedicoController {
     private final HistorialMedicoService historialMedicoService;
+    private final AuthService authService;
 
     @PostMapping
     public ResponseEntity<HistorialMedicoResponse> crearHistorial(
-            @Valid @RequestBody HistorialMedicoRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        HistorialMedicoResponse response = historialMedicoService.crearHistorial(request, userDetails.getUsername());
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+            @RequestBody @Valid HistorialMedicoRequest request,
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.crearHistorial(request, userEmail));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<HistorialMedicoResponse> actualizarHistorial(
             @PathVariable String id,
-            @Valid @RequestBody HistorialMedicoRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        HistorialMedicoResponse response = historialMedicoService.actualizarHistorial(id, request, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            @RequestBody @Valid HistorialMedicoRequest request,
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.actualizarHistorial(id, request, userEmail));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<HistorialMedicoResponse> obtenerHistorialPorId(
+    public ResponseEntity<HistorialMedicoResponse> obtenerPorId(
             @PathVariable String id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        HistorialMedicoResponse response = historialMedicoService.obtenerHistorialPorId(id, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.obtenerHistorialPorId(id, userEmail));
     }
 
     @GetMapping("/mascota/{mascotaId}")
-    public ResponseEntity<List<HistorialMedicoResponse>> obtenerHistorialPorMascota(
+    public ResponseEntity<List<HistorialMedicoResponse>> obtenerPorMascota(
             @PathVariable String mascotaId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascota(mascotaId, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.obtenerHistorialPorMascota(mascotaId, userEmail));
     }
 
     @GetMapping("/mascota/{mascotaId}/paginado")
-    public ResponseEntity<Page<HistorialMedicoResponse>> obtenerHistorialPorMascotaPaginado(
+    public ResponseEntity<Page<HistorialMedicoResponse>> obtenerPorMascotaPaginado(
             @PathVariable String mascotaId,
-            @PageableDefault(size = 10, sort = "fecha") Pageable pageable,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Page<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaPaginado(
-                mascotaId, pageable, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            Pageable pageable,
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.obtenerHistorialPorMascotaPaginado(mascotaId, pageable, userEmail));
     }
 
-    @GetMapping("/mascota/{mascotaId}/tipo/{tipo}")
-    public ResponseEntity<List<HistorialMedicoResponse>> obtenerHistorialPorMascotaYTipo(
+    @GetMapping("/mascota/{mascotaId}/tipo")
+    public ResponseEntity<List<HistorialMedicoResponse>> obtenerPorMascotaYTipo(
             @PathVariable String mascotaId,
-            @PathVariable TipoEventoMedico tipo,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaYTipo(
-                mascotaId, tipo, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            @RequestParam TipoEventoMedico tipo,
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.obtenerHistorialPorMascotaYTipo(mascotaId, tipo, userEmail));
     }
 
     @GetMapping("/mascota/{mascotaId}/fechas")
-    public ResponseEntity<List<HistorialMedicoResponse>> obtenerHistorialPorMascotaYFechas(
+    public ResponseEntity<List<HistorialMedicoResponse>> obtenerPorMascotaYFechas(
             @PathVariable String mascotaId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaYFechas(
-                mascotaId, fechaInicio, fechaFin, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.obtenerHistorialPorMascotaYFechas(mascotaId, fechaInicio, fechaFin, userEmail));
     }
 
     @GetMapping("/mascota/{mascotaId}/peso")
     public ResponseEntity<List<HistorialMedicoResponse>> obtenerHistorialPesoPorMascota(
             @PathVariable String mascotaId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPesoPorMascota(
-                mascotaId, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.obtenerHistorialPesoPorMascota(mascotaId, userEmail));
     }
 
-    @GetMapping("/mascota/{mascotaId}/ultimo-peso")
+    @GetMapping("/mascota/{mascotaId}/peso/ultimo")
     public ResponseEntity<HistorialMedicoResponse> obtenerUltimoPesoPorMascota(
             @PathVariable String mascotaId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        HistorialMedicoResponse response = historialMedicoService.obtenerUltimoPesoPorMascota(
-                mascotaId, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.obtenerUltimoPesoPorMascota(mascotaId, userEmail));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarHistorial(
             @PathVariable String id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        historialMedicoService.eliminarHistorial(id, userDetails.getUsername());
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        historialMedicoService.eliminarHistorial(id, userEmail);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/mascota/{mascotaId}/estadisticas")
-    public ResponseEntity<Map<String, Object>> obtenerEstadisticasMascota(
+    @GetMapping("/mascota/{mascotaId}/contar")
+    public ResponseEntity<Long> contarHistorialPorMascota(
             @PathVariable String mascotaId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        long totalRegistros = historialMedicoService.contarHistorialPorMascota(mascotaId, userDetails.getUsername());
-        long totalVacunas = historialMedicoService.contarHistorialPorMascotaYTipo(mascotaId, TipoEventoMedico.VACUNACION, userDetails.getUsername());
-        long totalConsultas = historialMedicoService.contarHistorialPorMascotaYTipo(mascotaId, TipoEventoMedico.CONSULTA, userDetails.getUsername());
-        long totalCirugias = historialMedicoService.contarHistorialPorMascotaYTipo(mascotaId, TipoEventoMedico.CIRUGIA, userDetails.getUsername());
-
-        Map<String, Object> estadisticas = Map.of(
-                "totalRegistros", totalRegistros,
-                "totalVacunas", totalVacunas,
-                "totalConsultas", totalConsultas,
-                "totalCirugias", totalCirugias
-        );
-
-        return ResponseEntity.ok(estadisticas);
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.contarHistorialPorMascota(mascotaId, userEmail));
     }
 
-    @GetMapping("/tipos-evento")
-    public ResponseEntity<List<Map<String, String>>> obtenerTiposEvento() {
-        List<Map<String, String>> tipos = List.of(
-                Map.of("codigo", "VACUNACION", "descripcion", "Vacunación"),
-                Map.of("codigo", "CONSULTA", "descripcion", "Consulta"),
-                Map.of("codigo", "CIRUGIA", "descripcion", "Cirugía"),
-                Map.of("codigo", "ALERGIA", "descripcion", "Alergia"),
-                Map.of("codigo", "DESPARASITACION", "descripcion", "Desparasitación"),
-                Map.of("codigo", "REVISION", "descripcion", "Revisión"),
-                Map.of("codigo", "EMERGENCIA", "descripcion", "Emergencia"),
-                Map.of("codigo", "EXAMEN", "descripcion", "Examen"),
-                Map.of("codigo", "TRATAMIENTO", "descripcion", "Tratamiento"),
-                Map.of("codigo", "ENFERMEDAD", "descripcion", "Enfermedad")
-        );
-        return ResponseEntity.ok(tipos);
+    @GetMapping("/mascota/{mascotaId}/contar-tipo")
+    public ResponseEntity<Long> contarHistorialPorMascotaYTipo(
+            @PathVariable String mascotaId,
+            @RequestParam TipoEventoMedico tipo,
+            HttpServletRequest httpRequest) {
+        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        return ResponseEntity.ok(historialMedicoService.contarHistorialPorMascotaYTipo(mascotaId, tipo, userEmail));
     }
 }
+
