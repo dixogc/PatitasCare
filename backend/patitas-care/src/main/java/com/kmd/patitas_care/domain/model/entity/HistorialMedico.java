@@ -38,7 +38,7 @@ public class HistorialMedico {
     @Column(name = "tipo", nullable = false)
     private TipoEventoMedico tipo;
 
-    @Column(name = "peso", precision = 5, scale = 2)
+    @Column(name = "peso")
     private Double peso;
 
     @Column(name = "created_at", nullable = false, updatable = false)
