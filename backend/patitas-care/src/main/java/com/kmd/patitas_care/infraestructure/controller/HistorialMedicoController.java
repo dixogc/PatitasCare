@@ -41,8 +41,8 @@ public class HistorialMedicoController {
             @RequestBody @Valid HistorialMedicoRequest request,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
-        HistorialMedicoResponse response = historialMedicoService.crearHistorial(request, userEmail);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        HistorialMedicoResponse response = historialMedicoService.crearHistorial(request, clienteId);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -53,8 +53,8 @@ public class HistorialMedicoController {
             @RequestBody @Valid HistorialMedicoRequest request,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
-        HistorialMedicoResponse response = historialMedicoService.actualizarHistorial(id, request, userEmail);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        HistorialMedicoResponse response = historialMedicoService.actualizarHistorial(id, request, clienteId);
 
         return ResponseEntity.ok(response);
     }
@@ -64,8 +64,8 @@ public class HistorialMedicoController {
             @PathVariable String id,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
-        HistorialMedicoResponse response = historialMedicoService.obtenerHistorialPorId(id, userEmail);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        HistorialMedicoResponse response = historialMedicoService.obtenerHistorialPorId(id, clienteId);
 
         return ResponseEntity.ok(response);
     }
@@ -75,8 +75,8 @@ public class HistorialMedicoController {
             @PathVariable String mascotaId,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascota(mascotaId, userEmail);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascota(mascotaId, clienteId);
 
         return ResponseEntity.ok(response);
     }
@@ -90,14 +90,14 @@ public class HistorialMedicoController {
             @RequestParam(defaultValue = "desc") String sortDir,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
 
         Sort sort = sortDir.equalsIgnoreCase("desc") ?
                 Sort.by(sortBy).descending() :
                 Sort.by(sortBy).ascending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaPaginado(mascotaId, pageable, userEmail);
+        Page<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaPaginado(mascotaId, pageable, clienteId);
 
         return ResponseEntity.ok(response);
     }
@@ -108,8 +108,8 @@ public class HistorialMedicoController {
             @RequestParam TipoEventoMedico tipo,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaYTipo(mascotaId, tipo, userEmail);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaYTipo(mascotaId, tipo, clienteId);
 
         return ResponseEntity.ok(response);
     }
@@ -121,9 +121,9 @@ public class HistorialMedicoController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
         List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaYFechas(
-                mascotaId, fechaInicio, fechaFin, userEmail);
+                mascotaId, fechaInicio, fechaFin, clienteId);
 
         return ResponseEntity.ok(response);
     }
@@ -133,8 +133,8 @@ public class HistorialMedicoController {
             @PathVariable String id,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
-        historialMedicoService.eliminarHistorial(id, userEmail);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        historialMedicoService.eliminarHistorial(id, clienteId);
 
         return ResponseEntity.noContent().build();
     }
@@ -144,8 +144,8 @@ public class HistorialMedicoController {
             @PathVariable String mascotaId,
             HttpServletRequest httpRequest) {
 
-        String userEmail = authService.obtenerClienteDesdeToken(httpRequest);
-        long count = historialMedicoService.contarHistorialPorMascota(mascotaId, userEmail);
+        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        long count = historialMedicoService.contarHistorialPorMascota(mascotaId, clienteId);
 
         return ResponseEntity.ok(count);
     }

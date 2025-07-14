@@ -29,11 +29,11 @@ public class HistorialMedicoServiceImpl implements HistorialMedicoService {
     private final MascotaService mascotaService; // Asume que tienes este servicio para validar la mascota
 
     @Override
-    public HistorialMedicoResponse crearHistorial(HistorialMedicoRequest request, String userEmail) {
-        log.info("Creando historial médico para mascota: {} por usuario: {}", request.getMascotaId(), userEmail);
+    public HistorialMedicoResponse crearHistorial(HistorialMedicoRequest request, String clienteId) {
+        log.info("Creando historial médico para mascota: {} por usuario: {}", request.getMascotaId(), clienteId);
 
         // Validar que la mascota pertenece al usuario
-        validarMascotaPertenenceAlUsuario(request.getMascotaId(), userEmail);
+        validarMascotaPertenenceAlUsuario(request.getMascotaId(), clienteId);
 
         HistorialMedico historial = historialMedicoMapper.toEntity(request);
         HistorialMedico historialGuardado = historialMedicoRepository.save(historial);
@@ -43,14 +43,14 @@ public class HistorialMedicoServiceImpl implements HistorialMedicoService {
     }
 
     @Override
-    public HistorialMedicoResponse actualizarHistorial(String id, HistorialMedicoRequest request, String userEmail) {
-        log.info("Actualizando historial médico ID: {} por usuario: {}", id, userEmail);
+    public HistorialMedicoResponse actualizarHistorial(String id, HistorialMedicoRequest request, String clienteId) {
+        log.info("Actualizando historial médico ID: {} por usuario: {}", id, clienteId);
 
-        HistorialMedico historial = obtenerHistorialYValidarPertenencia(id, userEmail);
+        HistorialMedico historial = obtenerHistorialYValidarPertenencia(id, clienteId);
 
         // Validar que la nueva mascota también pertenece al usuario
         if (!historial.getMascotaId().equals(request.getMascotaId())) {
-            validarMascotaPertenenceAlUsuario(request.getMascotaId(), userEmail);
+            validarMascotaPertenenceAlUsuario(request.getMascotaId(), clienteId);
         }
 
         historialMedicoMapper.updateEntityFromRequest(historial, request);
@@ -61,49 +61,49 @@ public class HistorialMedicoServiceImpl implements HistorialMedicoService {
     }
 
     @Override
-    public HistorialMedicoResponse obtenerHistorialPorId(String id, String userEmail) {
-        log.info("Obteniendo historial médico ID: {} por usuario: {}", id, userEmail);
+    public HistorialMedicoResponse obtenerHistorialPorId(String id, String clienteId) {
+        log.info("Obteniendo historial médico ID: {} por usuario: {}", id, clienteId);
 
-        HistorialMedico historial = obtenerHistorialYValidarPertenencia(id, userEmail);
+        HistorialMedico historial = obtenerHistorialYValidarPertenencia(id, clienteId);
         return historialMedicoMapper.toResponse(historial);
     }
 
     @Override
-    public List<HistorialMedicoResponse> obtenerHistorialPorMascota(String mascotaId, String userEmail) {
-        log.info("Obteniendo historial médico para mascota: {} por usuario: {}", mascotaId, userEmail);
+    public List<HistorialMedicoResponse> obtenerHistorialPorMascota(String mascotaId, String clienteId) {
+        log.info("Obteniendo historial médico para mascota: {} por usuario: {}", mascotaId, clienteId);
 
-        validarMascotaPertenenceAlUsuario(mascotaId, userEmail);
+        validarMascotaPertenenceAlUsuario(mascotaId, clienteId);
 
         List<HistorialMedico> historiales = historialMedicoRepository.findByMascotaIdOrderByFechaDesc(mascotaId);
         return historialMedicoMapper.toResponseList(historiales);
     }
 
     @Override
-    public Page<HistorialMedicoResponse> obtenerHistorialPorMascotaPaginado(String mascotaId, Pageable pageable, String userEmail) {
-        log.info("Obteniendo historial médico paginado para mascota: {} por usuario: {}", mascotaId, userEmail);
+    public Page<HistorialMedicoResponse> obtenerHistorialPorMascotaPaginado(String mascotaId, Pageable pageable, String clienteId) {
+        log.info("Obteniendo historial médico paginado para mascota: {} por usuario: {}", mascotaId, clienteId);
 
-        validarMascotaPertenenceAlUsuario(mascotaId, userEmail);
+        validarMascotaPertenenceAlUsuario(mascotaId, clienteId);
 
         Page<HistorialMedico> page = historialMedicoRepository.findByMascotaIdOrderByFechaDesc(mascotaId, pageable);
         return page.map(historialMedicoMapper::toResponse);
     }
 
     @Override
-    public List<HistorialMedicoResponse> obtenerHistorialPorMascotaYTipo(String mascotaId, TipoEventoMedico tipo, String userEmail) {
-        log.info("Obteniendo historial médico para mascota: {} tipo: {} por usuario: {}", mascotaId, tipo, userEmail);
+    public List<HistorialMedicoResponse> obtenerHistorialPorMascotaYTipo(String mascotaId, TipoEventoMedico tipo, String clienteId) {
+        log.info("Obteniendo historial médico para mascota: {} tipo: {} por usuario: {}", mascotaId, tipo, clienteId);
 
-        validarMascotaPertenenceAlUsuario(mascotaId, userEmail);
+        validarMascotaPertenenceAlUsuario(mascotaId, clienteId);
 
         List<HistorialMedico> historiales = historialMedicoRepository.findByMascotaIdAndTipoOrderByFechaDesc(mascotaId, tipo);
         return historialMedicoMapper.toResponseList(historiales);
     }
 
     @Override
-    public List<HistorialMedicoResponse> obtenerHistorialPorMascotaYFechas(String mascotaId, LocalDate fechaInicio, LocalDate fechaFin, String userEmail) {
+    public List<HistorialMedicoResponse> obtenerHistorialPorMascotaYFechas(String mascotaId, LocalDate fechaInicio, LocalDate fechaFin, String clienteId) {
         log.info("Obteniendo historial médico para mascota: {} entre fechas: {} - {} por usuario: {}",
-                mascotaId, fechaInicio, fechaFin, userEmail);
+                mascotaId, fechaInicio, fechaFin, clienteId);
 
-        validarMascotaPertenenceAlUsuario(mascotaId, userEmail);
+        validarMascotaPertenenceAlUsuario(mascotaId, clienteId);
 
         List<HistorialMedico> historiales = historialMedicoRepository.findByMascotaIdAndFechaBetweenOrderByFechaDesc(
                 mascotaId, fechaInicio, fechaFin);
@@ -111,35 +111,35 @@ public class HistorialMedicoServiceImpl implements HistorialMedicoService {
     }
 
     @Override
-    public void eliminarHistorial(String id, String userEmail) {
-        log.info("Eliminando historial médico ID: {} por usuario: {}", id, userEmail);
+    public void eliminarHistorial(String id, String clienteId) {
+        log.info("Eliminando historial médico ID: {} por usuario: {}", id, clienteId);
 
-        HistorialMedico historial = obtenerHistorialYValidarPertenencia(id, userEmail);
+        HistorialMedico historial = obtenerHistorialYValidarPertenencia(id, clienteId);
         historialMedicoRepository.delete(historial);
 
         log.info("Historial médico eliminado exitosamente");
     }
 
     @Override
-    public long contarHistorialPorMascota(String mascotaId, String userEmail) {
-        log.info("Contando historial médico para mascota: {} por usuario: {}", mascotaId, userEmail);
+    public long contarHistorialPorMascota(String mascotaId, String clienteId) {
+        log.info("Contando historial médico para mascota: {} por usuario: {}", mascotaId, clienteId);
 
-        validarMascotaPertenenceAlUsuario(mascotaId, userEmail);
+        validarMascotaPertenenceAlUsuario(mascotaId, clienteId);
 
         return historialMedicoRepository.countByMascotaId(mascotaId);
     }
 
-    private HistorialMedico obtenerHistorialYValidarPertenencia(String id, String userEmail) {
+    private HistorialMedico obtenerHistorialYValidarPertenencia(String id, String clienteId) {
         HistorialMedico historial = historialMedicoRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Historial médico no encontrado"));
 
-        validarMascotaPertenenceAlUsuario(historial.getMascotaId(), userEmail);
+        validarMascotaPertenenceAlUsuario(historial.getMascotaId(), clienteId);
 
         return historial;
     }
 
-    private void validarMascotaPertenenceAlUsuario(String mascotaId, String userEmail) {
-        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, userEmail)) {
+    private void validarMascotaPertenenceAlUsuario(String mascotaId, String clienteId) {
+        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId)) {
             throw new UnauthorizedException("No tienes permisos para acceder a esta mascota");
         }
     }

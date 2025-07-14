@@ -10,21 +10,21 @@ import java.util.List;
 
 public interface HistorialMedicoService {
 
-    HistorialMedicoResponse crearHistorial(HistorialMedicoRequest request, String userEmail);
+    HistorialMedicoResponse crearHistorial(HistorialMedicoRequest request, String clienteId);
 
-    HistorialMedicoResponse actualizarHistorial(String id, HistorialMedicoRequest request, String userEmail);
+    HistorialMedicoResponse actualizarHistorial(String id, HistorialMedicoRequest request, String clienteId);
 
     HistorialMedicoResponse obtenerHistorialPorId(String id, String userEmail);
 
-    List<HistorialMedicoResponse> obtenerHistorialPorMascota(String mascotaId, String userEmail);
+    List<HistorialMedicoResponse> obtenerHistorialPorMascota(String mascotaId, String clienteId);
 
-    Page<HistorialMedicoResponse> obtenerHistorialPorMascotaPaginado(String mascotaId, Pageable pageable, String userEmail);
+    Page<HistorialMedicoResponse> obtenerHistorialPorMascotaPaginado(String mascotaId, Pageable pageable, String clienteId);
 
-    List<HistorialMedicoResponse> obtenerHistorialPorMascotaYTipo(String mascotaId, TipoEventoMedico tipo, String userEmail);
+    List<HistorialMedicoResponse> obtenerHistorialPorMascotaYTipo(String mascotaId, TipoEventoMedico tipo, String clienteId);
 
-    List<HistorialMedicoResponse> obtenerHistorialPorMascotaYFechas(String mascotaId, LocalDate fechaInicio, LocalDate fechaFin, String userEmail);
+    List<HistorialMedicoResponse> obtenerHistorialPorMascotaYFechas(String mascotaId, LocalDate fechaInicio, LocalDate fechaFin, String clienteId);
 
-    void eliminarHistorial(String id, String userEmail);
+    void eliminarHistorial(String id, String clienteId);
 
-    long contarHistorialPorMascota(String mascotaId, String userEmail);
+    long contarHistorialPorMascota(String mascotaId, String clienteId);
 }
