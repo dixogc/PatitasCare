@@ -114,7 +114,7 @@ public class MascotaServiceImpl implements MascotaService {
     }
 
     @Override
-    public boolean mascotaPertenenceAlUsuario(String mascotaId, String userEmail) {
+    public boolean mascotaPertenenceAlUsuario(String mascotaId, String clienteId) {
         try {
             // Buscar la mascota por ID
             Mascota mascota = mascotaRepositoryJpa.findById(mascotaId)
@@ -126,8 +126,7 @@ public class MascotaServiceImpl implements MascotaService {
             }
 
             // Verificar que el email del cliente de la mascota coincide con el userEmail
-            return mascota.getCliente().getCorreo().equals(userEmail);
-
+            return mascota.getCliente().getId().equals(clienteId);
         } catch (Exception e) {
             // En caso de cualquier error, retornar false por seguridad
             return false;

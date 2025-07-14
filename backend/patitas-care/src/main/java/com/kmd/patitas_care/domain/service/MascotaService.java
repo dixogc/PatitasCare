@@ -15,5 +15,5 @@ public interface MascotaService {
     MascotaResponseDTO obtenerMascotaDelCliente(String mascotaId, String clienteId);
     MascotaResponseDTO actualizarMascotaDelCliente(String mascotaId, MascotaRequestDTO dto, String clienteId);
     void eliminarMascotaDelCliente(String mascotaId, String clienteId);
-    boolean mascotaPertenenceAlUsuario(String mascotaId, String userEmail);
+    boolean mascotaPertenenceAlUsuario(String mascotaId, String clienteId);
 }
