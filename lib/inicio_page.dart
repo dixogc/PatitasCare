@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:patitas_care/calendario.dart';
+import 'package:patitas_care/historial_medico_page.dart';
 import 'package:patitas_care/lista_de_mascotas.dart';
 import 'package:patitas_care/veterinarias_mapa_page.dart';
 
@@ -99,8 +100,8 @@ class HomePage extends StatelessWidget {
                 children: [
                   _buildTile(
                     context,
-                    'Mi Mascota', 
-                    Icons.pets, 
+                    'Mi Mascota',
+                    Icons.pets,
                     purple,
                     () => Navigator.pushReplacement(
                       context,
@@ -109,13 +110,15 @@ class HomePage extends StatelessWidget {
                   ),
                   _buildTile(
                     context,
-                    'Agenda', 
-                    Icons.calendar_month, 
+                    'Agenda',
+                    Icons.calendar_month,
                     yellow,
                     () => Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const NotificacionCalendarPage()),
-                    ),  
+                      MaterialPageRoute(
+                        builder: (context) => const NotificacionCalendarPage(),
+                      ),
+                    ),
                   ),
                   _buildTile(
                     context,
@@ -124,17 +127,22 @@ class HomePage extends StatelessWidget {
                     yellow,
                     () => Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const VeterinariasMapaPage()),
+                      MaterialPageRoute(
+                        builder: (context) => HistorialMedicoPage(),
+                      ),
                     ),
                   ),
+
                   _buildTile(
                     context,
-                    'Mapa', 
+                    'Mapa',
                     Icons.map, // Cambiado de sports_martial_arts a map
                     purple,
                     () => Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const VeterinariasMapaPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const VeterinariasMapaPage(),
+                      ),
                     ),
                   ),
                 ],
@@ -146,7 +154,13 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildTile(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildTile(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
