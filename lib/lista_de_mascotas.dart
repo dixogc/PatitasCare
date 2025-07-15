@@ -35,9 +35,11 @@ class _MyPetPageState extends State<MyPetPage> {
 
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Token no encontrado. Inicia sesión nuevamente.')),
+        const SnackBar(
+          content: Text('Token no encontrado. Inicia sesión nuevamente.'),
+        ),
       );
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushReplacementNamed(context, '/auth/login');
       return;
     }
 
@@ -66,9 +68,9 @@ class _MyPetPageState extends State<MyPetPage> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -139,114 +141,115 @@ class _MyPetPageState extends State<MyPetPage> {
                   child: isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : mascotas.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.pets,
-                                    size: 64,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No tienes mascotas registradas',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const RegistroMascotaPage(),
-                                        ),
-                                      ).then((_) => cargarMascotas());
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: purple,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(25),
-                                      ),
-                                    ),
-                                    child: const Text('Registrar Primera Mascota'),
-                                  ),
-                                ],
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.pets,
+                                size: 64,
+                                color: Colors.grey[400],
                               ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: mascotas.length,
-                              itemBuilder: (context, index) {
-                                final mascota = mascotas[index];
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  elevation: 3,
+                              const SizedBox(height: 16),
+                              Text(
+                                'No tienes mascotas registradas',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const RegistroMascotaPage(),
+                                    ),
+                                  ).then((_) => cargarMascotas());
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: purple,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(15),
+                                    borderRadius: BorderRadius.circular(25),
                                   ),
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.all(16),
-                                    leading: CircleAvatar(
-                                      backgroundColor: purple.withOpacity(0.2),
-                                      radius: 30,
-                                      child: Icon(
-                                        Icons.pets,
-                                        size: 30,
-                                        color: purple,
+                                ),
+                                child: const Text('Registrar Primera Mascota'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: mascotas.length,
+                          itemBuilder: (context, index) {
+                            final mascota = mascotas[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(16),
+                                leading: CircleAvatar(
+                                  backgroundColor: purple.withOpacity(0.2),
+                                  radius: 30,
+                                  child: Icon(
+                                    Icons.pets,
+                                    size: 30,
+                                    color: purple,
+                                  ),
+                                ),
+                                title: Text(
+                                  mascota['nombre'] ?? 'Sin nombre',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${mascota['especie'] ?? 'Sin especie'} • ${mascota['raza'] ?? 'Sin raza'}',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${mascota['edad'] ?? 0} años • ${mascota['peso'] ?? 0} kg',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
                                       ),
                                     ),
-                                    title: Text(
-                                      mascota['nombre'] ?? 'Sin nombre',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                  ],
+                                ),
+                                trailing: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => PetDetailPage(
+                                        mascotaId: mascota['id'],
                                       ),
                                     ),
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${mascota['especie'] ?? 'Sin especie'} • ${mascota['raza'] ?? 'Sin raza'}',
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '${mascota['edad'] ?? 0} años • ${mascota['peso'] ?? 0} kg',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    trailing: const Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
-                                    ),
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => PetDetailPage(
-                                            mascotaId: mascota['id'],
-                                          ),
-                                        ),
-                                      ).then((_) => cargarMascotas());
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
+                                  ).then((_) => cargarMascotas());
+                                },
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
