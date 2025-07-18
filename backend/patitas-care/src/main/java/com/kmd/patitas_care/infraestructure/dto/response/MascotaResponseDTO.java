@@ -29,7 +29,7 @@ public class MascotaResponseDTO {
     private int edad;
 
     @Schema(description = "Peso de la mascota", example = "2.5")
-    private int peso;
+    private double peso;
 
     @Schema(description = "Tamaño de la mascota", example = "50")
     private int size;

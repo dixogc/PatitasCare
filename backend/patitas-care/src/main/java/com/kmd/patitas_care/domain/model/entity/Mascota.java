@@ -24,7 +24,7 @@ public class Mascota {
     private String especie;
     private String raza;
     private int edad;
-    private int peso;
+    private double peso;
     private int size;
     private String color;
 }
