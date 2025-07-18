@@ -1,14 +1,17 @@
 package com.kmd.patitas_care.application.service.impl;
 
 import com.kmd.patitas_care.domain.model.entity.HistorialMedico;
+import com.kmd.patitas_care.domain.model.entity.Mascota;
 import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
 import com.kmd.patitas_care.domain.service.HistorialMedicoService;
 import com.kmd.patitas_care.domain.service.MascotaService;
 import com.kmd.patitas_care.infraestructure.dto.request.HistorialMedicoRequest;
 import com.kmd.patitas_care.infraestructure.dto.response.HistorialMedicoResponse;
+import com.kmd.patitas_care.infraestructure.exception.BadRequestException;
 import com.kmd.patitas_care.infraestructure.exception.UnauthorizedException;
 import com.kmd.patitas_care.infraestructure.mapper.HistorialMedicoMapper;
 import com.kmd.patitas_care.infraestructure.repository.jpa.HistorialMedicoRepository;
+import com.kmd.patitas_care.infraestructure.repository.jpa.MascotaRepositoryJpa;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,7 @@ public class HistorialMedicoServiceImpl implements HistorialMedicoService {
     private final HistorialMedicoRepository historialMedicoRepository;
     private final HistorialMedicoMapper historialMedicoMapper;
     private final MascotaService mascotaService; // Asume que tienes este servicio para validar la mascota
+    private final MascotaRepositoryJpa mascotaRepositoryJpa;
 
     @Override
     public HistorialMedicoResponse crearHistorial(HistorialMedicoRequest request, String clienteId) {
@@ -70,12 +74,25 @@ public class HistorialMedicoServiceImpl implements HistorialMedicoService {
 
     @Override
     public List<HistorialMedicoResponse> obtenerHistorialPorMascota(String mascotaId, String clienteId) {
-        log.info("Obteniendo historial médico para mascota: {} por usuario: {}", mascotaId, clienteId);
+        try {
+            log.info("=== INICIANDO obtenerHistorialPorMascota ===");
+            log.info("Obteniendo historial médico para mascota: {} por cliente: {}", mascotaId, clienteId);
 
-        validarMascotaPertenenceAlUsuario(mascotaId, clienteId);
+            log.info("Llamando a validarMascotaPertenenceAlUsuario...");
+            validarMascotaPertenenceAlUsuario(mascotaId, clienteId);
+            log.info("Validación de pertenencia exitosa");
 
-        List<HistorialMedico> historiales = historialMedicoRepository.findByMascotaIdOrderByFechaDesc(mascotaId);
-        return historialMedicoMapper.toResponseList(historiales);
+            List<HistorialMedico> historiales = historialMedicoRepository.findByMascotaIdOrderByFechaDesc(mascotaId);
+            log.info("Historiales encontrados: {}", historiales.size());
+
+            List<HistorialMedicoResponse> response = historialMedicoMapper.toResponseList(historiales);
+            log.info("=== FIN obtenerHistorialPorMascota - Retornando {} historiales ===", response.size());
+
+            return response;
+        } catch (Exception e) {
+            log.error("Error en obtenerHistorialPorMascota: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Override
@@ -139,8 +156,17 @@ public class HistorialMedicoServiceImpl implements HistorialMedicoService {
     }
 
     private void validarMascotaPertenenceAlUsuario(String mascotaId, String clienteId) {
-        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId)) {
-            throw new UnauthorizedException("No tienes permisos para acceder a esta mascota");
+        log.info("=== INICIANDO validarMascotaPertenenceAlUsuario ===");
+        log.info("Validando pertenencia - mascotaId: {}, clienteId: {}", mascotaId, clienteId);
+
+        boolean pertenece = mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId);
+        log.info("Resultado de mascotaPertenenceAlUsuario: {}", pertenece);
+
+        if (!pertenece) {
+            log.error("ACCESO DENEGADO - La mascota {} no pertenece al cliente {}", mascotaId, clienteId);
+            throw new BadRequestException("No tienes permisos para acceder a esta mascota");
         }
+
+        log.info("=== FIN validarMascotaPertenenceAlUsuario - Validación exitosa ===");
     }
 }
