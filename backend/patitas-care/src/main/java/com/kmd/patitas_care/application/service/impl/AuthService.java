@@ -11,12 +11,9 @@ import com.kmd.patitas_care.infraestructure.dto.request.AuthRequest;
 import com.kmd.patitas_care.infraestructure.dto.response.AuthResponse;
 import com.kmd.patitas_care.infraestructure.exception.InvalidPasswordException;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
 import java.util.Map;
 import java.util.Optional;
 
@@ -27,7 +24,6 @@ public class AuthService {
     private final VeterinarioRepository veterinarioRepository;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
-    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     public AuthService(ClienteRepository clienteRepo, VeterinarioRepository vetRepo, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
         this.clienteRepository = clienteRepo;
@@ -36,43 +32,43 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public String obtenerClienteDesdeToken(HttpServletRequest request){
-        try {
-            log.info("=== INICIANDO obtenerClienteDesdeToken ===");
+    public AuthResponse authenticate(AuthRequest request) {
+        Autenticable usuario = buscarUsuarioPorCorreo(request.getCorreo());
 
-            String token = extraerToken(request);
-            log.info("Token extraído exitosamente: {}", token.substring(0, Math.min(token.length(), 20)) + "...");
-
-            String email = jwtUtil.extractUsername(token);
-            log.info("Email extraído del token: {}", email);
-
-            Cliente cliente = clienteRepository.buscarPorCorreo(email)
-                    .orElseThrow(() -> {
-                        log.error("Cliente no encontrado con email: {}", email);
-                        return new UserNotFoundException("Cliente no encontrado");
-                    });
-
-            log.info("Cliente encontrado - ID: {}, Email: {}", cliente.getId(), cliente.getCorreo());
-            log.info("=== FIN obtenerClienteDesdeToken - Retornando ID: {} ===", cliente.getId());
-
-            return cliente.getId();
-        } catch (Exception e) {
-            log.error("Error en obtenerClienteDesdeToken: {}", e.getMessage(), e);
-            throw e;
+        if (usuario == null) {
+            throw new UsernameNotFoundException("Correo no registrado");
         }
+
+        if (!passwordEncoder.matches(request.getPassword(), usuario.getPasswordHash())) {
+            throw new InvalidPasswordException("Contraseña incorrecta");
+        }
+
+        Map<String, Object> claims = Map.of("rol", usuario.getTipo().name());
+        String token = jwtUtil.generateToken(usuario.getCorreo(), claims);
+        return new AuthResponse(token);
+    }
+
+    private Autenticable buscarUsuarioPorCorreo(String correo) {
+        Optional<Cliente> cliente = clienteRepository.buscarPorCorreo(correo);
+        if (cliente.isPresent()) return cliente.get();
+
+        Optional<Veterinario> veterinario = veterinarioRepository.buscarPorCorreo(correo);
+        return veterinario.orElse(null);
+    }
+
+    public String obtenerClienteDesdeToken(HttpServletRequest request){
+        String token = extraerToken(request);
+        String email = jwtUtil.extractUsername(token);
+        Cliente cliente = clienteRepository.buscarPorCorreo(email)
+                .orElseThrow(() -> new UserNotFoundException("Cliente no encontrado"));
+        return cliente.getId();
     }
 
     private String extraerToken(HttpServletRequest request){
-        log.info("Extrayendo token del request...");
         String authHeader = request.getHeader("Authorization");
-        log.info("Authorization header: {}", authHeader != null ? authHeader.substring(0, Math.min(authHeader.length(), 20)) + "..." : "null");
-
         if(authHeader != null && authHeader.startsWith("Bearer ")){
-            String token = authHeader.substring(7);
-            log.info("Token extraído correctamente");
-            return token;
+            return authHeader.substring(7);
         }
-        log.error("Token no encontrado o mal formateado");
         throw new RuntimeException("Token no encontrado");
     }
 }
