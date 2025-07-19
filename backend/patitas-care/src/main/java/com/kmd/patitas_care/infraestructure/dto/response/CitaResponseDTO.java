@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.kmd.patitas_care.config.CustomLocalDateTimeDeserializer;
 
 @Data
 @AllArgsConstructor
