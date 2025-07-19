@@ -19,7 +19,7 @@ public class CitaRequestDTO {
 
     @Schema(description = "Fecha y hora de la cita en formato ISO", example = "2025-07-05T10:30:00", required = true)
     @NotNull
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime fechaHora;
 
     @Schema(description = "Motivo o descripción de la cita", example = "Vacunación anual", required = true)
