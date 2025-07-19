@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.kmd.patitas_care.config.CustomLocalDateTimeDeserializer;
 
 @Data
 @NoArgsConstructor
