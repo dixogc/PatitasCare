@@ -1,14 +1,13 @@
 package com.kmd.patitas_care.infraestructure.dto.response;
 
 import com.kmd.patitas_care.domain.model.entity.enums.EstadoCita;
+import com.kmd.patitas_care.infraestructure.config.CustomLocalDateTimeDeserializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.kmd.patitas_care.config.CustomLocalDateTimeDeserializer;
 
 @Data
 @AllArgsConstructor
