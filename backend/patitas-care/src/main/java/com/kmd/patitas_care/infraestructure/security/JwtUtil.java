@@ -13,11 +13,15 @@ import java.util.function.Function;
 
 @Component
 public class JwtUtil {
-    private static final String SECRET_KEY = System.getenv("JWT_SECRET_KEY");
+    private final String secretKey;
+
+    public JwtUtil(@Value("${JWT_SECRET_KEY}") String secretKey) {
+        this.secretKey = secretKey;
+    }
     private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 10;
 
     private Key getSignInKey() {
-        return Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8));
+        return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
     public String extractUsername(String token) {
