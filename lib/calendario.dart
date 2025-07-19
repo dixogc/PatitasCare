@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:patitas_care/inicio_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -48,8 +48,9 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
 
   Future<void> _cargarMascotas() async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    final String? token = prefs.getString('token');
+    
+    final token = await AuthService.getToken();
+
     
     if (token == null) {
       print('No se encontró token de autenticación');
@@ -64,14 +65,9 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
       },
     );
 
-    print('Status Code: ${response.statusCode}'); // Debug
-    print('Response Body: ${response.body}'); // Debug
-
     if (response.statusCode == 200) {
       final List<dynamic> mascotasData = json.decode(response.body);
-      
-      print('Mascotas recibidas: ${mascotasData.length}'); // Debug
-      
+        
       setState(() {
         _mascotas = mascotasData.map((mascota) => {
           'id': mascota['id'].toString(),
@@ -79,7 +75,6 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
         }).toList();
       });
 
-      print('Mascotas cargadas en el estado: ${_mascotas.length}'); // Debug
     } else {
       print('Error HTTP: ${response.statusCode}');
       print('Error Body: ${response.body}');
@@ -107,72 +102,88 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
 }
 
   Future<void> _agendarCita() async {
-    final String motivo = _motivoController.text.trim();
+  final String motivo = _motivoController.text.trim();
 
-    if (motivo.isEmpty || _selectedMascotaId == null) {
-      _mostrarSnackBar('Por favor completa todos los campos', Colors.red);
+  if (motivo.isEmpty || _selectedMascotaId == null) {
+    _mostrarSnackBar('Por favor completa todos los campos', Colors.red);
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final String? token = await AuthService.getToken();
+
+    if (token == null) {
+      _mostrarSnackBar('Error de autenticación. Inicia sesión nuevamente', Colors.red);
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    final DateTime fechaCita = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
 
-    try {
-      final String? token = await AuthService.getToken();
-      
-      if (token == null) {
-        _mostrarSnackBar('Error de autenticación. Inicia sesión nuevamente', Colors.red);
-        return;
-      }
+    if (fechaCita.isBefore(DateTime.now())) {
+      _mostrarSnackBar('La fecha debe ser futura', Colors.red);
+      return;
+    }
 
-      final DateTime fechaCita = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        _selectedTime.hour,
-        _selectedTime.minute,
+    final String fechaFormateada = DateFormat("yyyy-MM-dd'T'HH:mm").format(fechaCita);
+
+    final Map<String, dynamic> citaData = {
+      'mascotaId': _selectedMascotaId,
+      'fechaHora': fechaFormateada,
+      'motivo': motivo,
+    };
+
+
+    final response = await http.post(
+      Uri.parse('https://patitas-care.onrender.com/citas/agendar'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode(citaData),
+    ).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 201) {
+      final Map<String, dynamic> citaResponse = json.decode(response.body);
+      await _programarNotificacion(
+        'Cita: ${citaResponse['motivo']}',
+        fechaCita,
       );
+      _mostrarSnackBar('Cita agendada exitosamente', Colors.green);
+      _limpiarCampos();
+    } else {
+      print("STATUS: ${response.statusCode}");
+      print("RESPONSE BODY: ${response.body}");
 
-      // Preparar datos según tu CitaRequestDTO
-      final Map<String, dynamic> citaData = {
-        'mascotaId': _selectedMascotaId,
-        'fechaHora': fechaCita.toIso8601String(),
-        'motivo': motivo,
-      };
-
-      final response = await http.post(
-        Uri.parse('https://patitas-care.onrender.com/citas/agendar'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode(citaData),
-      );
-
-      if (response.statusCode == 201) {
-        final Map<String, dynamic> citaResponse = json.decode(response.body);
-        await _programarNotificacion(
-          'Cita: ${citaResponse['motivo']}', 
-          fechaCita
-        );
-        _mostrarSnackBar('Cita agendada exitosamente', Colors.green);
-        _limpiarCampos();
-      } else {
+      try {
         final errorData = json.decode(response.body);
         _mostrarSnackBar(
-          errorData['message'] ?? 'Error al agendar la cita', 
-          Colors.red
+          errorData['message'] ?? 'Error al agendar la cita',
+          Colors.red,
         );
+      } catch (e) {
+        print('No se pudo decodificar el body del error: ${response.body}');
+        _mostrarSnackBar('Error inesperado del servidor', Colors.red);
       }
-    } catch (e) {
-      _mostrarSnackBar('Error de conexión: $e', Colors.red);
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
+  } catch (e) {
+    print('Error general en _agendarCita: $e');
+    _mostrarSnackBar('Error de conexión: $e', Colors.red);
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
   Future<void> _programarNotificacion(String titulo, DateTime fechaCita) async {
     final tz.TZDateTime fechaProgramada = tz.TZDateTime.from(
