@@ -1,10 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:patitas_care/inicio_page.dart';
 import 'package:patitas_care/registro_mascota.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'mi_mascota.dart';
+import 'package:patitas_care/auth_service.dart';
 
 class MyPetPage extends StatefulWidget {
   const MyPetPage({super.key});
@@ -30,8 +29,7 @@ class _MyPetPageState extends State<MyPetPage> {
       isLoading = true;
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await AuthService.getToken();
 
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -45,15 +43,8 @@ class _MyPetPageState extends State<MyPetPage> {
 
     try {
       final baseUrl = 'https://patitas-care.onrender.com';
-      final url = Uri.parse('$baseUrl/mascotas/mis-mascotas');
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await AuthService.authenticatedGet('$baseUrl/mascotas/mis-mascotas');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);

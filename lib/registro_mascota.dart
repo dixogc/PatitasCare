@@ -73,7 +73,7 @@ Future<void> registrarMascota() async {
         'raza': razaController.text,
         'edad': int.tryParse(edadController.text) ?? 0,
         'peso': double.tryParse(pesoController.text) ?? 0.0,
-        'size': sizeController.text,
+        'size': int.tryParse(sizeController.text) ?? 0,
         'color': colorController.text,
       }),
     );
@@ -83,7 +83,6 @@ Future<void> registrarMascota() async {
         const SnackBar(content: Text('¡Mascota registrada exitosamente!')),
       );
       
-      // Aquí decides a dónde ir después del registro exitoso
       Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const InicioPage()),
@@ -113,20 +112,35 @@ Future<void> registrarMascota() async {
 }
 
   bool _validarCampos() {
-    if (nombreController.text.isEmpty ||
-        edadController.text.isEmpty ||
-        razaController.text.isEmpty ||
-        pesoController.text.isEmpty ||
-        sizeController.text.isEmpty ||
-        colorController.text.isEmpty ||
-        especieSeleccionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, completa todos los campos.')),
-      );
-      return false;
-    }
-    return true;
+  if (nombreController.text.isEmpty ||
+      edadController.text.isEmpty ||
+      razaController.text.isEmpty ||
+      pesoController.text.isEmpty ||
+      sizeController.text.isEmpty ||
+      colorController.text.isEmpty ||
+      especieSeleccionado == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Por favor, completa todos los campos.')),
+    );
+    return false;
   }
+
+  if (double.tryParse(pesoController.text) == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('El peso debe ser un número válido.')),
+    );
+    return false;
+  }
+
+  if (int.tryParse(sizeController.text) == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('El tamaño debe ser un número válido.')),
+    );
+    return false;
+  }
+
+  return true;
+}
 
   @override
   Widget build(BuildContext context) {
