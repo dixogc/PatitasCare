@@ -1,8 +1,5 @@
 package com.kmd.patitas_care;
 
-import com.kmd.patitas_care.domain.model.entity.Cliente;
-import com.kmd.patitas_care.domain.model.entity.Usuario;
-import com.kmd.patitas_care.domain.model.entity.enums.TipoDeUsuario;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
