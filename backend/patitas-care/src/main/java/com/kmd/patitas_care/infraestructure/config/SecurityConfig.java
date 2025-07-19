@@ -1,6 +1,9 @@
 package com.kmd.patitas_care.infraestructure.config;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.kmd.patitas_care.domain.repository.VeterinariaRepository;
 import com.kmd.patitas_care.infraestructure.repository.jpa.impl.OpenStreetMapVeterinariaRepository;
 import com.kmd.patitas_care.infraestructure.security.JwtAuthenticationFilter;
@@ -109,8 +112,13 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Primary
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return mapper;
     }
 
     // Configuración de los repositorios de veterinarias
