@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import com.fasterxml.jackson.annotation.JsonFormat;
-
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 @Data
 @AllArgsConstructor
@@ -23,7 +23,7 @@ public class CitaResponseDTO {
     private String motivo;
 
     @Schema(description = "Fecha y hora de la cita", example = "2025-07-05T10:30:00")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm")
+    @JsonDeserialize(using = CustomLocalDateTimeDeserializer.class)
     private LocalDateTime fechaHora;
 
     @Schema(description = "Estado de la cita", example = "AGENDADA")
