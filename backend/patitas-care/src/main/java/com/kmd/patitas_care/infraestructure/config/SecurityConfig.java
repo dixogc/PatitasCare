@@ -113,15 +113,15 @@ public class SecurityConfig {
 
     @Bean
     @Primary
-    public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        return mapper;
+    public ObjectMapper objectMapper(Jackson2ObjectMapperBuilder builder) {
+        return builder
+            .createXmlMapper(false)
+            .modules(new JavaTimeModule())
+            .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .featuresToDisable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
     }
 
-    // Configuración de los repositorios de veterinarias
     @Bean
     @Primary // Este será el repository principal
     public VeterinariaRepository veterinariaRepository(RestTemplate restTemplate, ObjectMapper objectMapper) {
