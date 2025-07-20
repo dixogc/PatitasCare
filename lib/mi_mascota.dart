@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:patitas_care/auth_service.dart';
 import 'editar_mascota.dart';
 
 
@@ -31,27 +31,22 @@ class _PetDetailPageState extends State<PetDetailPage> {
       isLoading = true;
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await AuthService.getToken();
 
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Token no encontrado')),
+        const SnackBar(
+          content: Text('Token no encontrado.'),
+        ),
       );
+      Navigator.pushReplacementNamed(context, '/auth/login');
       return;
     }
 
     try {
       final baseUrl = 'https://patitas-care.onrender.com';
-      final url = Uri.parse('$baseUrl/mascotas/mis-mascotas/${widget.mascotaId}');
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await AuthService.authenticatedGet('$baseUrl/mascotas/mis-mascotas/${widget.mascotaId}');
 
       if (response.statusCode == 200) {
         setState(() {
@@ -93,8 +88,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
 
     if (confirmed != true) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await AuthService.getToken();
 
     if (token == null) return;
 

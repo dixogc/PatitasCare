@@ -9,9 +9,6 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'auth_service.dart';
 import 'dart:io';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificacionCalendarPage extends StatefulWidget {
@@ -44,7 +41,7 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
 
   void _inicializar() async {
     await inicializarNotificaciones();
-    await _verificarPermisoAlarmasUnaVez();
+    await _verificarPermisoNotificacionesUnaVez();
     await _cargarMascotas();
     await _cargarCitas();
   }
@@ -61,72 +58,72 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  Future<void> _verificarPermisoAlarmasUnaVez() async {
+  Future<void> _verificarPermisoNotificacionesUnaVez() async {
     if (_permisosVerificados) return;
     
     if (Platform.isAndroid) {
-      final deviceInfo = await DeviceInfoPlugin().androidInfo;
-      if (deviceInfo.version.sdkInt >= 31) {
-        // Solo mostrar si realmente no tiene permisos
-        final prefs = await SharedPreferences.getInstance();
-        final permisoVerificado = prefs.getBool('permiso_alarmas_verificado') ?? false;
-        
-        if (!permisoVerificado) {
-          final shouldShowDialog = await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                title: Row(
-                  children: [
-                    Icon(Icons.notifications_active, color: Color(0xFF8B5CF6)),
-                    SizedBox(width: 8),
-                    Text('Permisos de Notificación'),
-                  ],
-                ),
-                content: Text(
-                  'Para recibir recordatorios de citas, necesitamos permisos de notificación. ¿Deseas configurarlos ahora?',
-                  style: TextStyle(fontSize: 16),
-                  softWrap: true,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(false);
-                    },
-                    child: Text('Más tarde'),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF8B5CF6),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop(true);
-                    },
-                    child: Text('Configurar'),
-                  ),
+      // Verificar permisos de notificación normal
+      final prefs = await SharedPreferences.getInstance();
+      final permisoVerificado = prefs.getBool('permiso_notificaciones_verificado') ?? false;
+      
+      if (!permisoVerificado) {
+        final shouldShowDialog = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.notifications_active, color: Color(0xFF8B5CF6)),
+                  SizedBox(width: 8),
+                  Text('Permisos de Notificación'),
                 ],
-              );
-            },
-          );
-
-          if (shouldShowDialog == true) {
-            final intent = AndroidIntent(
-              action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-              flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+              ),
+              content: Text(
+                'Para recibir recordatorios de citas, necesitamos permisos de notificación. ¿Deseas activarlos ahora?',
+                style: TextStyle(fontSize: 16),
+                softWrap: true,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                  child: Text('Más tarde'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                  child: Text('Activar'),
+                ),
+              ],
             );
-            await intent.launch();
-          }
+          },
+        );
+
+        if (shouldShowDialog == true) {
+          // Solicitar permisos de notificación normal
+          final bool? granted = await flutterLocalNotificationsPlugin
+              .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+              ?.requestNotificationsPermission();
           
-          await prefs.setBool('permiso_alarmas_verificado', true);
+          if (granted == true) {
+            _mostrarSnackBar('Notificaciones activadas correctamente', Colors.green);
+          }
         }
+        
+        await prefs.setBool('permiso_notificaciones_verificado', true);
       }
     }
     _permisosVerificados = true;
@@ -250,10 +247,14 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
 
       if (response.statusCode == 201) {
         final Map<String, dynamic> citaResponse = json.decode(response.body);
+        final mascotaNombre = _mascotas.firstWhere((m) => m['id'] == _selectedMascotaId)['nombre'];
+        
         await _programarNotificacion(
-          'Cita: ${citaResponse['motivo']}',
+          'Recordatorio: Cita de $mascotaNombre',
+          'Motivo: ${citaResponse['motivo']}',
           fechaCita,
         );
+        
         _mostrarSnackBar('Cita agendada exitosamente', Colors.green);
         _limpiarCampos();
         await _cargarCitas(); // Recargar la lista de citas
@@ -280,7 +281,45 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     }
   }
 
-  Future<void> _programarNotificacion(String titulo, DateTime fechaCita) async {
+  Future<void> _programarNotificacion(String titulo, String cuerpo, DateTime fechaCita) async {
+    // Programar notificación 1 hora antes
+    final DateTime notificacionAntes = fechaCita.subtract(Duration(hours: 1));
+    if (notificacionAntes.isAfter(DateTime.now())) {
+      final tz.TZDateTime fechaNotificacionAntes = tz.TZDateTime.from(
+        notificacionAntes,
+        tz.local,
+      );
+
+      const AndroidNotificationDetails androidDetailsAntes =
+          AndroidNotificationDetails(
+            'recordatorios_citas',
+            'Recordatorios de Citas',
+            channelDescription: 'Notificaciones de recordatorio de citas veterinarias',
+            importance: Importance.high,
+            priority: Priority.high,
+            showWhen: true,
+            icon: '@mipmap/ic_launcher',
+            styleInformation: BigTextStyleInformation(''),
+          );
+
+      const NotificationDetails notificationDetailsAntes = NotificationDetails(
+        android: androidDetailsAntes,
+      );
+
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        '⏰ Cita en 1 hora - $titulo',
+        cuerpo,
+        fechaNotificacionAntes,
+        notificationDetailsAntes,
+        androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+      );
+    }
+
+    // Programar notificación a la hora exacta
     final tz.TZDateTime fechaProgramada = tz.TZDateTime.from(
       fechaCita,
       tz.local,
@@ -288,11 +327,16 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
 
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'canal_citas',
+          'recordatorios_citas',
           'Recordatorios de Citas',
-          channelDescription: 'Canal para notificaciones de citas programadas',
-          importance: Importance.max,
+          channelDescription: 'Notificaciones de recordatorio de citas veterinarias',
+          importance: Importance.high,
           priority: Priority.high,
+          showWhen: true,
+          icon: '@mipmap/ic_launcher',
+          styleInformation: BigTextStyleInformation(''),
+          playSound: true,
+          enableVibration: true,
         );
 
     const NotificationDetails notificationDetails = NotificationDetails(
@@ -300,14 +344,15 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     );
 
     await flutterLocalNotificationsPlugin.zonedSchedule(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      titulo,
-      '¡Es hora de tu cita veterinaria!',
+      (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 1,
+      '🐾 ¡Es hora de tu cita!',
+      '$titulo - $cuerpo',
       fechaProgramada,
       notificationDetails,
       androidAllowWhileIdle: true,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
     );
   }
 
@@ -896,30 +941,34 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                       ],
                     ),
                     child: IconButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => InicioPage()),
+                        );
+                      },
                       icon: const Icon(
                         Icons.arrow_back,
                         color: Color(0xFF1F2937),
                       ),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => InicioPage()),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Text(
-                    'Recordatorios',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2937),
+                  const Expanded(
+                    child: Text(
+                      'Citas Veterinarias',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F2937),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Tab selector
+            // Tab Bar
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
@@ -937,50 +986,82 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _selectedTabIndex = 0),
+                      onTap: () {
+                        setState(() {
+                          _selectedTabIndex = 0;
+                        });
+                      },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
                           color: _selectedTabIndex == 0
                               ? const Color(0xFF8B5CF6)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Text(
-                          'Agendar',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _selectedTabIndex == 0
-                                ? Colors.white
-                                : const Color(0xFF6B7280),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_circle_outline,
+                              color: _selectedTabIndex == 0
+                                  ? Colors.white
+                                  : const Color(0xFF6B7280),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Agendar',
+                              style: TextStyle(
+                                color: _selectedTabIndex == 0
+                                    ? Colors.white
+                                    : const Color(0xFF6B7280),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _selectedTabIndex = 1),
+                      onTap: () {
+                        setState(() {
+                          _selectedTabIndex = 1;
+                        });
+                      },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
                           color: _selectedTabIndex == 1
                               ? const Color(0xFF8B5CF6)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Text(
-                          'Mis Citas',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _selectedTabIndex == 1
-                                ? Colors.white
-                                : const Color(0xFF6B7280),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              color: _selectedTabIndex == 1
+                                  ? Colors.white
+                                  : const Color(0xFF6B7280),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Mis Citas',
+                              style: TextStyle(
+                                color: _selectedTabIndex == 1
+                                    ? Colors.white
+                                    : const Color(0xFF6B7280),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -991,10 +1072,10 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
 
             const SizedBox(height: 20),
 
-            // Content
+            // Tab Content
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
                 child: _selectedTabIndex == 0
                     ? _buildAgendarTab()
                     : _buildCitasTab(),
