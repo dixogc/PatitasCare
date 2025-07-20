@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificacionCalendarPage extends StatefulWidget {
   const NotificacionCalendarPage({super.key});
@@ -26,20 +27,29 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
   final TextEditingController _motivoController = TextEditingController();
-  String? _selectedMascotaId; // Para almacenar el ID de la mascota seleccionada
-  List<Map<String, dynamic>> _mascotas = []; // Lista de mascotas del usuario
+  String? _selectedMascotaId;
+  List<Map<String, dynamic>> _mascotas = [];
+  List<Map<String, dynamic>> _citas = [];
   bool _isLoading = false;
+  bool _isLoadingCitas = false;
+  bool _permisosVerificados = false;
+  int _selectedTabIndex = 0; // 0 para agendar, 1 para ver citas
 
   @override
   void initState() {
     super.initState();
     tz.initializeTimeZones();
-    inicializarNotificaciones();
-    verificarPermisoAlarmas(); 
-    _cargarMascotas();
+    _inicializar();
   }
 
-  void inicializarNotificaciones() async {
+  void _inicializar() async {
+    await inicializarNotificaciones();
+    await _verificarPermisoAlarmasUnaVez();
+    await _cargarMascotas();
+    await _cargarCitas();
+  }
+
+  Future<void> inicializarNotificaciones() async {
     flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -51,144 +61,224 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  Future<void> _cargarMascotas() async {
-  try {
+  Future<void> _verificarPermisoAlarmasUnaVez() async {
+    if (_permisosVerificados) return;
     
-    final token = await AuthService.getToken();
-
-    
-    if (token == null) {
-      print('No se encontró token de autenticación');
-      return;
-    }
-
-    final response = await http.get(
-      Uri.parse('https://patitas-care.onrender.com/mascotas/mis-mascotas'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> mascotasData = json.decode(response.body);
+    if (Platform.isAndroid) {
+      final deviceInfo = await DeviceInfoPlugin().androidInfo;
+      if (deviceInfo.version.sdkInt >= 31) {
+        // Solo mostrar si realmente no tiene permisos
+        final prefs = await SharedPreferences.getInstance();
+        final permisoVerificado = prefs.getBool('permiso_alarmas_verificado') ?? false;
         
-      setState(() {
-        _mascotas = mascotasData.map((mascota) => {
-          'id': mascota['id'].toString(),
-          'nombre': mascota['nombre'].toString(),
-        }).toList();
-      });
+        if (!permisoVerificado) {
+          final shouldShowDialog = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: Row(
+                  children: [
+                    Icon(Icons.notifications_active, color: Color(0xFF8B5CF6)),
+                    SizedBox(width: 8),
+                    Text('Permisos de Notificación'),
+                  ],
+                ),
+                content: Text(
+                  'Para recibir recordatorios de citas, necesitamos permisos de notificación. ¿Deseas configurarlos ahora?',
+                  style: TextStyle(fontSize: 16),
+                  softWrap: true,
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(false);
+                    },
+                    child: Text('Más tarde'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF8B5CF6),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop(true);
+                    },
+                    child: Text('Configurar'),
+                  ),
+                ],
+              );
+            },
+          );
 
-    } else {
-      print('Error HTTP: ${response.statusCode}');
-      print('Error Body: ${response.body}');
-      
-      // Mostrar mensaje de error al usuario
-      if (mounted) {
-        _mostrarSnackBar(
-          'Error al cargar mascotas: ${response.statusCode}', 
-          Colors.red
-        );
+          if (shouldShowDialog == true) {
+            final intent = AndroidIntent(
+              action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+              flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+            );
+            await intent.launch();
+          }
+          
+          await prefs.setBool('permiso_alarmas_verificado', true);
+        }
       }
     }
-  } catch (e) {
-    print('Error al cargar mascotas: $e');
-    print('Stack trace: ${StackTrace.current}');
-    
-    // Mostrar mensaje de error al usuario
-    if (mounted) {
-      _mostrarSnackBar(
-        'Error de conexión al cargar mascotas', 
-        Colors.red
+    _permisosVerificados = true;
+  }
+
+  Future<void> _cargarMascotas() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('https://patitas-care.onrender.com/mascotas/mis-mascotas'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> mascotasData = json.decode(response.body);
+        setState(() {
+          _mascotas = mascotasData.map((mascota) => {
+            'id': mascota['id'].toString(),
+            'nombre': mascota['nombre'].toString(),
+          }).toList();
+        });
+      }
+    } catch (e) {
+      print('Error al cargar mascotas: $e');
     }
   }
-}
+
+  Future<void> _cargarCitas() async {
+    setState(() {
+      _isLoadingCitas = true;
+    });
+
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('https://patitas-care.onrender.com/citas/mis-citas'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> citasData = json.decode(response.body);
+        setState(() {
+          _citas = citasData.map((cita) => {
+            'id': cita['id'].toString(),
+            'mascotaNombre': cita['mascotaNombre'].toString(),
+            'motivo': cita['motivo'].toString(),
+            'fechaHora': cita['fechaHora'].toString(),
+            'estado': cita['estado'].toString(),
+            'veterinarioNombre': cita['veterinarioNombre']?.toString() ?? 'No asignado',
+          }).toList();
+        });
+      }
+    } catch (e) {
+      print('Error al cargar citas: $e');
+    } finally {
+      setState(() {
+        _isLoadingCitas = false;
+      });
+    }
+  }
 
   Future<void> _agendarCita() async {
-  final String motivo = _motivoController.text.trim();
+    final String motivo = _motivoController.text.trim();
 
-  if (motivo.isEmpty || _selectedMascotaId == null) {
-    _mostrarSnackBar('Por favor completa todos los campos', Colors.red);
-    return;
-  }
-
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    final String? token = await AuthService.getToken();
-
-    if (token == null) {
-      _mostrarSnackBar('Error de autenticación. Inicia sesión nuevamente', Colors.red);
+    if (motivo.isEmpty || _selectedMascotaId == null) {
+      _mostrarSnackBar('Por favor completa todos los campos', Colors.red);
       return;
     }
 
-    final DateTime fechaCita = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
-    );
-
-    if (fechaCita.isBefore(DateTime.now())) {
-      _mostrarSnackBar('La fecha debe ser futura', Colors.red);
-      return;
-    }
-
-    final String fechaFormateada = DateFormat("yyyy-MM-dd'T'HH:mm").format(fechaCita);
-
-    final Map<String, dynamic> citaData = {
-      'mascotaId': _selectedMascotaId,
-      'fechaHora': fechaFormateada,
-      'motivo': motivo,
-    };
-
-
-    final response = await http.post(
-      Uri.parse('https://patitas-care.onrender.com/citas/agendar'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: json.encode(citaData),
-    ).timeout(const Duration(seconds: 30));
-
-    if (response.statusCode == 201) {
-      final Map<String, dynamic> citaResponse = json.decode(response.body);
-      await _programarNotificacion(
-        'Cita: ${citaResponse['motivo']}',
-        fechaCita,
-      );
-      _mostrarSnackBar('Cita agendada exitosamente', Colors.green);
-      _limpiarCampos();
-    } else {
-      print("STATUS: ${response.statusCode}");
-      print("RESPONSE BODY: ${response.body}");
-
-      try {
-        final errorData = json.decode(response.body);
-        _mostrarSnackBar(
-          errorData['message'] ?? 'Error al agendar la cita',
-          Colors.red,
-        );
-      } catch (e) {
-        print('No se pudo decodificar el body del error: ${response.body}');
-        _mostrarSnackBar('Error inesperado del servidor', Colors.red);
-      }
-    }
-  } catch (e) {
-    print('Error general en _agendarCita: $e');
-    _mostrarSnackBar('Error de conexión: $e', Colors.red);
-  } finally {
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
     });
+
+    try {
+      final String? token = await AuthService.getToken();
+
+      if (token == null) {
+        _mostrarSnackBar('Error de autenticación. Inicia sesión nuevamente', Colors.red);
+        return;
+      }
+
+      final DateTime fechaCita = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
+      if (fechaCita.isBefore(DateTime.now())) {
+        _mostrarSnackBar('La fecha debe ser futura', Colors.red);
+        return;
+      }
+
+      final String fechaFormateada = DateFormat("yyyy-MM-dd'T'HH:mm").format(fechaCita);
+
+      final Map<String, dynamic> citaData = {
+        'mascotaId': _selectedMascotaId,
+        'fechaHora': fechaFormateada,
+        'motivo': motivo,
+      };
+
+      final response = await http.post(
+        Uri.parse('https://patitas-care.onrender.com/citas/agendar'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(citaData),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 201) {
+        final Map<String, dynamic> citaResponse = json.decode(response.body);
+        await _programarNotificacion(
+          'Cita: ${citaResponse['motivo']}',
+          fechaCita,
+        );
+        _mostrarSnackBar('Cita agendada exitosamente', Colors.green);
+        _limpiarCampos();
+        await _cargarCitas(); // Recargar la lista de citas
+        setState(() {
+          _selectedTabIndex = 1; // Cambiar a la pestaña de citas
+        });
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          _mostrarSnackBar(
+            errorData['message'] ?? 'Error al agendar la cita',
+            Colors.red,
+          );
+        } catch (e) {
+          _mostrarSnackBar('Error inesperado del servidor', Colors.red);
+        }
+      }
+    } catch (e) {
+      _mostrarSnackBar('Error de conexión: $e', Colors.red);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
-}
 
   Future<void> _programarNotificacion(String titulo, DateTime fechaCita) async {
     final tz.TZDateTime fechaProgramada = tz.TZDateTime.from(
@@ -219,19 +309,6 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
-  }
-
-  Future<void> verificarPermisoAlarmas() async {
-    if (Platform.isAndroid) {
-      final deviceInfo = await DeviceInfoPlugin().androidInfo;
-      if (deviceInfo.version.sdkInt >= 31) {
-        final intent = AndroidIntent(
-          action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-          flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
-        );
-        await intent.launch();
-      }
-    }
   }
 
   Future<void> _seleccionarHora(BuildContext context) async {
@@ -279,11 +356,40 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     });
   }
 
+  String _formatearFecha(String fechaHora) {
+    try {
+      final DateTime fecha = DateTime.parse(fechaHora);
+      return DateFormat('dd/MM/yyyy - HH:mm').format(fecha);
+    } catch (e) {
+      return fechaHora;
+    }
+  }
+
+  Color _getEstadoColor(String estado) {
+    switch (estado.toUpperCase()) {
+      case 'AGENDADA':
+        return Colors.blue;
+      case 'COMPLETADA':
+        return Colors.green;
+      case 'CANCELADA':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildMascotaDropdown() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFE5E7EB).withOpacity(0.7),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: _mascotas.isEmpty
           ? Container(
@@ -330,11 +436,11 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
               ),
               decoration: InputDecoration(
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: const BorderSide(
                     color: Color(0xFF8B5CF6),
                     width: 2,
@@ -379,12 +485,6 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                   _selectedMascotaId = newValue;
                 });
               },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor selecciona una mascota';
-                }
-                return null;
-              },
             ),
     );
   }
@@ -396,8 +496,15 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
   ) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFE5E7EB).withOpacity(0.7),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         controller: controller,
@@ -414,11 +521,11 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
             fontSize: 14,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
               color: Color(0xFF8B5CF6),
               width: 2,
@@ -433,242 +540,467 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [
-              Color(0xFFFEF3C7), // Amarillo suave
-              Color(0xFFF3E8FF), // Púrpura muy suave
-              Color(0xFFE0E7FF), // Azul muy suave
-            ],
+  Widget _buildAgendarTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          
+          // Calendario
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TableCalendar(
+              focusedDay: _selectedDate,
+              firstDay: DateTime.now(),
+              lastDay: DateTime.utc(2100),
+              selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
+              onDaySelected: (selectedDay, focusedDay) {
+                setState(() {
+                  _selectedDate = selectedDay;
+                });
+              },
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                weekendTextStyle: const TextStyle(
+                  color: Color(0xFF6B7280),
+                ),
+                defaultTextStyle: const TextStyle(
+                  color: Color(0xFF1F2937),
+                ),
+                selectedDecoration: const BoxDecoration(
+                  color: Color(0xFF8B5CF6),
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header con botón de regreso
-                  Row(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Color(0xFF1F2937),
-                          ),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => InicioPage()),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-                  // Título principal
-                  const Text(
-                    'Agendar Cita',
+          _buildMascotaDropdown(),
+          const SizedBox(height: 16),
+
+          _buildTextField(
+            _motivoController,
+            'Motivo de la cita',
+            Icons.medical_services,
+          ),
+          const SizedBox(height: 16),
+
+          // Selección de hora
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.access_time,
+                  color: Color(0xFF6B7280),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Hora:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _selectedTime.format(context),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8B5CF6),
+                  ),
+                ),
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () => _seleccionarHora(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: const Text(
+                    'Cambiar',
                     style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2937),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Calendario
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: TableCalendar(
-                      focusedDay: _selectedDate,
-                      firstDay: DateTime.now(),
-                      lastDay: DateTime.utc(2100),
-                      selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
-                      onDaySelected: (selectedDay, focusedDay) {
-                        setState(() {
-                          _selectedDate = selectedDay;
-                        });
-                      },
-                      calendarStyle: CalendarStyle(
-                        outsideDaysVisible: false,
-                        weekendTextStyle: const TextStyle(
-                          color: Color(0xFF6B7280),
-                        ),
-                        defaultTextStyle: const TextStyle(
-                          color: Color(0xFF1F2937),
-                        ),
-                        selectedDecoration: const BoxDecoration(
-                          color: Color(0xFF8B5CF6),
-                          shape: BoxShape.circle,
-                        ),
-                        todayDecoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withOpacity(0.3),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      headerStyle: const HeaderStyle(
-                        formatButtonVisible: false,
-                        titleCentered: true,
-                        titleTextStyle: TextStyle(
-                          color: Color(0xFF1F2937),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Campos de información
-                  const Text(
-                    'Información de la Cita:',
-                    style: TextStyle(
-                      fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1F2937),
+                      fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
 
-                  _buildMascotaDropdown(),
-                  const SizedBox(height: 16),
-
-                  _buildTextField(
-                    _motivoController,
-                    'Motivo de la cita (ej: Vacunación, Consulta)',
-                    Icons.medical_services,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Selección de hora
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E7EB).withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time,
-                          color: Color(0xFF6B7280),
+          // Botón principal
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _agendarCita,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8B5CF6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.white,
                         ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Hora:',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF1F2937),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          _selectedTime.format(context),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF8B5CF6),
-                          ),
-                        ),
-                        const Spacer(),
-                        ElevatedButton(
-                          onPressed: () => _seleccionarHora(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B5CF6),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          child: const Text(
-                            'Cambiar',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Botón principal
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _agendarCita,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B5CF6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        elevation: 5,
-                        shadowColor: const Color(0xFF8B5CF6).withOpacity(0.3),
+                        strokeWidth: 2,
                       ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                    )
+                  : const Text(
+                      'Agendar Cita',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCitasTab() {
+    return _isLoadingCitas
+        ? const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
+            ),
+          )
+        : _citas.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No tienes citas programadas',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Agenda tu primera cita usando la pestaña anterior',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _cargarCitas,
+                child: ListView.builder(
+                  itemCount: _citas.length,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemBuilder: (context, index) {
+                    final cita = _citas[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _getEstadoColor(cita['estado']).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    cita['estado'],
+                                    style: TextStyle(
+                                      color: _getEstadoColor(cita['estado']),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                                strokeWidth: 2,
+                                const Spacer(),
+                                Icon(
+                                  Icons.pets,
+                                  color: const Color(0xFF8B5CF6),
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              cita['mascotaNombre'],
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1F2937),
                               ),
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              cita['motivo'],
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
                               children: [
                                 Icon(
-                                  Icons.calendar_today,
-                                  size: 24,
+                                  Icons.access_time,
+                                  color: Colors.grey[500],
+                                  size: 16,
                                 ),
-                                SizedBox(width: 12),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'Agendar Cita',
+                                  _formatearFecha(cita['fechaHora']),
                                   style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
                                   ),
                                 ),
                               ],
                             ),
+                            if (cita['veterinarioNombre'] != 'No asignado') ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.local_hospital,
+                                    color: Colors.grey[500],
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Dr. ${cita['veterinarioNombre']}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              color: Colors.transparent,
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Color(0xFF1F2937),
+                      ),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => InicioPage()),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Recordatorios',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1F2937),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
+
+            // Tab selector
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedTabIndex = 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedTabIndex == 0
+                              ? const Color(0xFF8B5CF6)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Agendar',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _selectedTabIndex == 0
+                                ? Colors.white
+                                : const Color(0xFF6B7280),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedTabIndex = 1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedTabIndex == 1
+                              ? const Color(0xFF8B5CF6)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Mis Citas',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _selectedTabIndex == 1
+                                ? Colors.white
+                                : const Color(0xFF6B7280),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _selectedTabIndex == 0
+                    ? _buildAgendarTab()
+                    : _buildCitasTab(),
+              ),
+            ),
+          ],
         ),
       ),
     );
