@@ -8,6 +8,10 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'auth_service.dart';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
 
 class NotificacionCalendarPage extends StatefulWidget {
   const NotificacionCalendarPage({super.key});
@@ -31,7 +35,8 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     super.initState();
     tz.initializeTimeZones();
     inicializarNotificaciones();
-    _cargarMascotas(); // Cargar las mascotas del usuario
+    verificarPermisoAlarmas(); 
+    _cargarMascotas();
   }
 
   void inicializarNotificaciones() async {
@@ -214,6 +219,19 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
+  }
+
+  Future<void> verificarPermisoAlarmas() async {
+    if (Platform.isAndroid) {
+      final deviceInfo = await DeviceInfoPlugin().androidInfo;
+      if (deviceInfo.version.sdkInt >= 31) {
+        final intent = AndroidIntent(
+          action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+          flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+        );
+        await intent.launch();
+      }
+    }
   }
 
   Future<void> _seleccionarHora(BuildContext context) async {
