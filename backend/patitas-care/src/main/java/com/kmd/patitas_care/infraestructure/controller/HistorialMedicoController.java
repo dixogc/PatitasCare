@@ -1,31 +1,30 @@
 package com.kmd.patitas_care.infraestructure.controller;
 
 import com.kmd.patitas_care.application.service.impl.AuthService;
-import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
+import com.kmd.patitas_care.domain.model.entity.HistorialMedico;
 import com.kmd.patitas_care.domain.service.HistorialMedicoService;
+import com.kmd.patitas_care.domain.service.MascotaService;
 import com.kmd.patitas_care.infraestructure.dto.request.HistorialMedicoRequest;
 import com.kmd.patitas_care.infraestructure.dto.response.HistorialMedicoResponse;
+import com.kmd.patitas_care.infraestructure.mapper.HistorialMedicoMapper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
+@Tag(name = "Historial Médico", description = "Operaciones relacionadas con el historial médico de las mascotas")
 @RestController
 @RequestMapping("/historial-medico")
 @RequiredArgsConstructor
@@ -33,120 +32,181 @@ import java.util.Map;
 @Validated
 public class HistorialMedicoController {
 
-    private final HistorialMedicoService historialMedicoService;
+    private final HistorialMedicoService historialService;
+    private final MascotaService mascotaService;
     private final AuthService authService;
 
-    @PostMapping
+    @Operation(summary = "Registrar una entrada al historial médico",
+            description = "Permite al cliente registrar un evento médico para una de sus mascotas.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Entrada registrada correctamente"),
+            @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
+            @ApiResponse(responseCode = "403", description = "La mascota no pertenece al usuario"),
+            @ApiResponse(responseCode = "404", description = "Mascota no encontrada")
+    })
+    @PostMapping("/mis-mascotas/{mascotaId}")
     public ResponseEntity<HistorialMedicoResponse> crearHistorial(
-            @RequestBody @Valid HistorialMedicoRequest request,
-            HttpServletRequest httpRequest) {
-
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        HistorialMedicoResponse response = historialMedicoService.crearHistorial(request, clienteId);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<HistorialMedicoResponse> actualizarHistorial(
-            @PathVariable String id,
-            @RequestBody @Valid HistorialMedicoRequest request,
-            HttpServletRequest httpRequest) {
-
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        HistorialMedicoResponse response = historialMedicoService.actualizarHistorial(id, request, clienteId);
-
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<HistorialMedicoResponse> obtenerPorId(
-            @PathVariable String id,
-            HttpServletRequest httpRequest) {
-
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        HistorialMedicoResponse response = historialMedicoService.obtenerHistorialPorId(id, clienteId);
-
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/mascota/{mascotaId}")
-    public ResponseEntity<List<HistorialMedicoResponse>> obtenerPorMascota(
+            @Parameter(description = "ID de la mascota", required = true)
             @PathVariable String mascotaId,
-            HttpServletRequest httpRequest) {
+            @RequestBody @Valid HistorialMedicoRequest dto,
+            HttpServletRequest request) {
 
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascota(mascotaId, clienteId);
+        log.info("Creando entrada de historial médico para mascota: {}", mascotaId);
 
-        return ResponseEntity.ok(response);
+        String clienteId = authService.obtenerClienteDesdeToken(request);
+
+        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId)) {
+            log.warn("Usuario {} intentó acceder a mascota {} que no le pertenece", clienteId, mascotaId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        HistorialMedico historial = historialService.guardar(
+                HistorialMedicoMapper.toEntity(dto, mascotaId)
+        );
+
+        log.info("Entrada de historial médico creada exitosamente con ID: {}", historial.getId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(HistorialMedicoMapper.toResponseDTO(historial));
     }
 
-    @GetMapping("/mascota/{mascotaId}/paginado")
-    public ResponseEntity<Page<HistorialMedicoResponse>> obtenerPorMascotaPaginado(
+    @Operation(summary = "Obtener historial médico completo de una mascota",
+            description = "Obtiene todas las entradas del historial médico para una mascota del cliente autenticado, ordenadas por fecha descendente.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Historial médico obtenido correctamente"),
+            @ApiResponse(responseCode = "403", description = "La mascota no pertenece al usuario"),
+            @ApiResponse(responseCode = "404", description = "Mascota no encontrada")
+    })
+    @GetMapping("/mis-mascotas/{mascotaId}")
+    public ResponseEntity<List<HistorialMedicoResponse>> obtenerHistorialCompleto(
+            @Parameter(description = "ID de la mascota", required = true)
             @PathVariable String mascotaId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "fecha") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest request) {
 
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
+        log.debug("Obteniendo historial médico completo para mascota: {}", mascotaId);
 
-        Sort sort = sortDir.equalsIgnoreCase("desc") ?
-                Sort.by(sortBy).descending() :
-                Sort.by(sortBy).ascending();
+        String clienteId = authService.obtenerClienteDesdeToken(request);
 
-        Pageable pageable = PageRequest.of(page, size, sort);
-        Page<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaPaginado(mascotaId, pageable, clienteId);
+        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId)) {
+            log.warn("Usuario {} intentó acceder a mascota {} que no le pertenece", clienteId, mascotaId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
-        return ResponseEntity.ok(response);
+        List<HistorialMedicoResponse> historial = historialService
+                .listarPorMascota(mascotaId)
+                .stream()
+                .map(HistorialMedicoMapper::toResponseDTO)
+                .collect(Collectors.toList());
+
+        log.debug("Se encontraron {} entradas de historial médico para mascota: {}", historial.size(), mascotaId);
+        return ResponseEntity.ok(historial);
     }
 
-    @GetMapping("/mascota/{mascotaId}/tipo")
-    public ResponseEntity<List<HistorialMedicoResponse>> obtenerPorMascotaYTipo(
+    @Operation(summary = "Obtener una entrada específica del historial médico",
+            description = "Obtiene una entrada específica del historial médico por su ID.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Entrada obtenida correctamente"),
+            @ApiResponse(responseCode = "403", description = "La mascota no pertenece al usuario"),
+            @ApiResponse(responseCode = "404", description = "Entrada no encontrada")
+    })
+    @GetMapping("/mis-mascotas/{mascotaId}/{historialId}")
+    public ResponseEntity<HistorialMedicoResponse> obtenerEntradaHistorial(
+            @Parameter(description = "ID de la mascota", required = true)
             @PathVariable String mascotaId,
-            @RequestParam TipoEventoMedico tipo,
-            HttpServletRequest httpRequest) {
+            @Parameter(description = "ID de la entrada del historial", required = true)
+            @PathVariable String historialId,
+            HttpServletRequest request) {
 
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaYTipo(mascotaId, tipo, clienteId);
+        log.debug("Obteniendo entrada de historial médico: {} para mascota: {}", historialId, mascotaId);
 
-        return ResponseEntity.ok(response);
+        String clienteId = authService.obtenerClienteDesdeToken(request);
+
+        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId)) {
+            log.warn("Usuario {} intentó acceder a mascota {} que no le pertenece", clienteId, mascotaId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Optional<HistorialMedico> optional = historialService.buscarPorId(historialId);
+        if (optional.isEmpty() || !optional.get().getMascota().getId().equals(mascotaId)) {
+            log.warn("Entrada de historial médico {} no encontrada o no pertenece a mascota {}", historialId, mascotaId);
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(HistorialMedicoMapper.toResponseDTO(optional.get()));
     }
 
-    @GetMapping("/mascota/{mascotaId}/fechas")
-    public ResponseEntity<List<HistorialMedicoResponse>> obtenerPorMascotaYFechas(
+    @Operation(summary = "Actualizar una entrada del historial médico",
+            description = "Actualiza una entrada del historial médico si pertenece a una mascota del cliente.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Entrada actualizada correctamente"),
+            @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
+            @ApiResponse(responseCode = "403", description = "La mascota no pertenece al usuario"),
+            @ApiResponse(responseCode = "404", description = "Entrada no encontrada")
+    })
+    @PutMapping("/mis-mascotas/{mascotaId}/{historialId}")
+    public ResponseEntity<HistorialMedicoResponse> actualizarEntradaHistorial(
+            @Parameter(description = "ID de la mascota", required = true)
             @PathVariable String mascotaId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
-            HttpServletRequest httpRequest) {
+            @Parameter(description = "ID de la entrada del historial", required = true)
+            @PathVariable String historialId,
+            @RequestBody @Valid HistorialMedicoRequest dto,
+            HttpServletRequest request) {
 
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        List<HistorialMedicoResponse> response = historialMedicoService.obtenerHistorialPorMascotaYFechas(
-                mascotaId, fechaInicio, fechaFin, clienteId);
+        log.info("Actualizando entrada de historial médico: {} para mascota: {}", historialId, mascotaId);
 
-        return ResponseEntity.ok(response);
+        String clienteId = authService.obtenerClienteDesdeToken(request);
+
+        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId)) {
+            log.warn("Usuario {} intentó acceder a mascota {} que no le pertenece", clienteId, mascotaId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Optional<HistorialMedico> optional = historialService.buscarPorId(historialId);
+        if (optional.isEmpty() || !optional.get().getMascota().getId().equals(mascotaId)) {
+            log.warn("Entrada de historial médico {} no encontrada o no pertenece a mascota {}", historialId, mascotaId);
+            return ResponseEntity.notFound().build();
+        }
+
+        HistorialMedico historialExistente = optional.get();
+        HistorialMedicoMapper.updateEntity(historialExistente, dto);
+
+        HistorialMedico historialActualizado = historialService.actualizar(historialExistente);
+
+        log.info("Entrada de historial médico {} actualizada exitosamente", historialId);
+        return ResponseEntity.ok(HistorialMedicoMapper.toResponseDTO(historialActualizado));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarHistorial(
-            @PathVariable String id,
-            HttpServletRequest httpRequest) {
+    @Operation(summary = "Eliminar una entrada del historial médico",
+            description = "Elimina una entrada del historial médico si pertenece a una mascota del cliente.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Entrada eliminada correctamente"),
+            @ApiResponse(responseCode = "403", description = "La mascota no pertenece al usuario"),
+            @ApiResponse(responseCode = "404", description = "Entrada no encontrada")
+    })
+    @DeleteMapping("/mis-mascotas/{mascotaId}/{historialId}")
+    public ResponseEntity<Void> eliminarEntradaHistorial(
+            @Parameter(description = "ID de la mascota", required = true)
+            @PathVariable String mascotaId,
+            @Parameter(description = "ID de la entrada del historial", required = true)
+            @PathVariable String historialId,
+            HttpServletRequest request) {
 
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        historialMedicoService.eliminarHistorial(id, clienteId);
+        log.info("Eliminando entrada de historial médico: {} para mascota: {}", historialId, mascotaId);
 
+        String clienteId = authService.obtenerClienteDesdeToken(request);
+
+        if (!mascotaService.mascotaPertenenceAlUsuario(mascotaId, clienteId)) {
+            log.warn("Usuario {} intentó acceder a mascota {} que no le pertenece", clienteId, mascotaId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Optional<HistorialMedico> optional = historialService.buscarPorId(historialId);
+        if (optional.isEmpty() || !optional.get().getMascota().getId().equals(mascotaId)) {
+            log.warn("Entrada de historial médico {} no encontrada o no pertenece a mascota {}", historialId, mascotaId);
+            return ResponseEntity.notFound().build();
+        }
+
+        historialService.eliminar(historialId);
+        log.info("Entrada de historial médico {} eliminada exitosamente", historialId);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/mascota/{mascotaId}/contar")
-    public ResponseEntity<Long> contarHistorialPorMascota(
-            @PathVariable String mascotaId,
-            HttpServletRequest httpRequest) {
-
-        String clienteId = authService.obtenerClienteDesdeToken(httpRequest);
-        long count = historialMedicoService.contarHistorialPorMascota(mascotaId, clienteId);
-
-        return ResponseEntity.ok(count);
     }
 }

@@ -1,14 +1,13 @@
 package com.kmd.patitas_care.domain.model.entity;
 
-import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "historial_medico")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -18,39 +17,31 @@ public class HistorialMedico {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column(name = "mascota_id", nullable = false)
-    private String mascotaId;
+    @ManyToOne
+    @JoinColumn(name = "mascota_id", nullable = false)
+    private Mascota mascota;
 
-    @Column(name = "fecha", nullable = false)
-    private LocalDate fecha;
+    @Column(name = "fecha_evento", nullable = false)
+    private LocalDate fechaEvento;
 
-    @Column(name = "titulo", nullable = false, length = 200)
-    private String titulo;
+    @Column(name = "tipo_evento", nullable = false)
+    private String tipoEvento;
 
     @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo", nullable = false)
-    private TipoEventoMedico tipo;
+    @Column(name = "diagnostico", columnDefinition = "TEXT")
+    private String diagnostico;
 
     @Column(name = "peso")
     private Double peso;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "tratamiento", columnDefinition = "TEXT")
+    private String tratamiento;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "fecha_proxima_revision")
+    private LocalDate fechaProximaRevision;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "veterinario")
+    private String veterinario;
 }

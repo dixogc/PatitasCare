@@ -1,38 +1,42 @@
 package com.kmd.patitas_care.infraestructure.dto.request;
 
-import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class HistorialMedicoRequest {
 
-    @NotBlank(message = "El ID de la mascota es requerido")
-    private String mascotaId;
+    @NotNull(message = "La fecha del evento es obligatoria")
+    @PastOrPresent(message = "La fecha del evento no puede ser futura")
+    private LocalDate fechaEvento;
 
-    @NotNull(message = "La fecha es requerida")
-    @PastOrPresent(message = "La fecha no puede ser futura")
-    private LocalDate fecha;
+    @NotBlank(message = "El tipo de evento es obligatorio")
+    @Size(max = 100, message = "El tipo de evento no puede exceder 100 caracteres")
+    private String tipoEvento;
 
-    @NotBlank(message = "El título es requerido")
-    @Size(max = 200, message = "El título no puede exceder los 200 caracteres")
-    private String titulo;
-
-    @Size(max = 2000, message = "La descripción no puede exceder los 2000 caracteres")
+    @Size(max = 1000, message = "La descripción no puede exceder 1000 caracteres")
     private String descripcion;
 
-    @NotNull(message = "El tipo de evento es requerido")
-    private TipoEventoMedico tipo;
-
     @DecimalMin(value = "0.1", message = "El peso debe ser mayor a 0.1 kg")
-    @DecimalMax(value = "999.99", message = "El peso no puede exceder los 999.99 kg")
+    @DecimalMax(value = "200.0", message = "El peso no puede exceder 200 kg")
+    @Digits(integer = 3, fraction = 2, message = "El peso debe tener máximo 3 enteros y 2 decimales")
     private Double peso;
+
+    @Size(max = 1000, message = "El diagnóstico no puede exceder 1000 caracteres")
+    private String diagnostico;
+
+    @Size(max = 1000, message = "El tratamiento no puede exceder 1000 caracteres")
+    private String tratamiento;
+
+    @Future(message = "La fecha de próxima revisión debe ser futura")
+    private LocalDate fechaProximaRevision;
+
+    @Size(max = 100, message = "El nombre del veterinario no puede exceder 100 caracteres")
+    private String veterinario;
 }

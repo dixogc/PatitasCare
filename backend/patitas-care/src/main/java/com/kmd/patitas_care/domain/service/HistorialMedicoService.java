@@ -1,30 +1,18 @@
 package com.kmd.patitas_care.domain.service;
 
-import com.kmd.patitas_care.domain.model.entity.enums.TipoEventoMedico;
-import com.kmd.patitas_care.infraestructure.dto.request.HistorialMedicoRequest;
-import com.kmd.patitas_care.infraestructure.dto.response.HistorialMedicoResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import java.time.LocalDate;
+import com.kmd.patitas_care.domain.model.entity.HistorialMedico;
 import java.util.List;
+import java.util.Optional;
 
 public interface HistorialMedicoService {
 
-    HistorialMedicoResponse crearHistorial(HistorialMedicoRequest request, String clienteId);
+    HistorialMedico guardar(HistorialMedico historialMedico);
 
-    HistorialMedicoResponse actualizarHistorial(String id, HistorialMedicoRequest request, String clienteId);
+    Optional<HistorialMedico> buscarPorId(String id);
 
-    HistorialMedicoResponse obtenerHistorialPorId(String id, String userEmail);
+    List<HistorialMedico> listarPorMascota(String mascotaId);
 
-    List<HistorialMedicoResponse> obtenerHistorialPorMascota(String mascotaId, String clienteId);
+    void eliminar(String id);
 
-    Page<HistorialMedicoResponse> obtenerHistorialPorMascotaPaginado(String mascotaId, Pageable pageable, String clienteId);
-
-    List<HistorialMedicoResponse> obtenerHistorialPorMascotaYTipo(String mascotaId, TipoEventoMedico tipo, String clienteId);
-
-    List<HistorialMedicoResponse> obtenerHistorialPorMascotaYFechas(String mascotaId, LocalDate fechaInicio, LocalDate fechaFin, String clienteId);
-
-    void eliminarHistorial(String id, String clienteId);
-
-    long contarHistorialPorMascota(String mascotaId, String clienteId);
+    HistorialMedico actualizar(HistorialMedico historialMedico);
 }

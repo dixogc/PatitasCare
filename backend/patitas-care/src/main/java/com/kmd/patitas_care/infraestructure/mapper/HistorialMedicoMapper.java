@@ -1,54 +1,51 @@
 package com.kmd.patitas_care.infraestructure.mapper;
 
 import com.kmd.patitas_care.domain.model.entity.HistorialMedico;
+import com.kmd.patitas_care.domain.model.entity.Mascota;
 import com.kmd.patitas_care.infraestructure.dto.request.HistorialMedicoRequest;
 import com.kmd.patitas_care.infraestructure.dto.response.HistorialMedicoResponse;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 @Component
 public class HistorialMedicoMapper {
 
-    public HistorialMedico toEntity(HistorialMedicoRequest request) {
+    public static HistorialMedico toEntity(HistorialMedicoRequest dto, String mascotaId) {
         return HistorialMedico.builder()
-                .mascotaId(request.getMascotaId())
-                .fecha(request.getFecha())
-                .titulo(request.getTitulo())
-                .descripcion(request.getDescripcion())
-                .tipo(request.getTipo())
-                .peso(request.getPeso())
+                .mascota(Mascota.builder().id(mascotaId).build())
+                .fechaEvento(dto.getFechaEvento())
+                .tipoEvento(dto.getTipoEvento())
+                .descripcion(dto.getDescripcion())
+                .peso(dto.getPeso())
+                .diagnostico(dto.getDiagnostico())
+                .tratamiento(dto.getTratamiento())
+                .fechaProximaRevision(dto.getFechaProximaRevision())
+                .veterinario(dto.getVeterinario())
                 .build();
     }
 
-    public HistorialMedicoResponse toResponse(HistorialMedico entity) {
+    public static HistorialMedicoResponse toResponseDTO(HistorialMedico historial) {
         return HistorialMedicoResponse.builder()
-                .id(entity.getId())
-                .mascotaId(entity.getMascotaId())
-                .fecha(entity.getFecha())
-                .titulo(entity.getTitulo())
-                .descripcion(entity.getDescripcion())
-                .tipo(entity.getTipo())
-                .tipoDescripcion(entity.getTipo().getDescripcion())
-                .peso(entity.getPeso())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
+                .id(historial.getId())
+                .mascotaId(historial.getMascota().getId())
+                .fechaEvento(historial.getFechaEvento())
+                .tipoEvento(historial.getTipoEvento())
+                .descripcion(historial.getDescripcion())
+                .peso(historial.getPeso())
+                .diagnostico(historial.getDiagnostico())
+                .tratamiento(historial.getTratamiento())
+                .fechaProximaRevision(historial.getFechaProximaRevision())
+                .veterinario(historial.getVeterinario())
                 .build();
     }
 
-    public List<HistorialMedicoResponse> toResponseList(List<HistorialMedico> entities) {
-        return entities.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    public void updateEntityFromRequest(HistorialMedico entity, HistorialMedicoRequest request) {
-        entity.setMascotaId(request.getMascotaId());
-        entity.setFecha(request.getFecha());
-        entity.setTitulo(request.getTitulo());
-        entity.setDescripcion(request.getDescripcion());
-        entity.setTipo(request.getTipo());
-        entity.setPeso(request.getPeso());
+    public static void updateEntity(HistorialMedico entity, HistorialMedicoRequest dto) {
+        entity.setFechaEvento(dto.getFechaEvento());
+        entity.setTipoEvento(dto.getTipoEvento());
+        entity.setDescripcion(dto.getDescripcion());
+        entity.setPeso(dto.getPeso());
+        entity.setDiagnostico(dto.getDiagnostico());
+        entity.setTratamiento(dto.getTratamiento());
+        entity.setFechaProximaRevision(dto.getFechaProximaRevision());
+        entity.setVeterinario(dto.getVeterinario());
     }
 }
