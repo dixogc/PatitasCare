@@ -1,15 +1,17 @@
 import 'dart:convert';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:patitas_care/inicio_page.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'auth_service.dart';
 import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificacionCalendarPage extends StatefulWidget {
   const NotificacionCalendarPage({super.key});
@@ -30,18 +32,19 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
   bool _isLoading = false;
   bool _isLoadingCitas = false;
   bool _permisosVerificados = false;
-  int _selectedTabIndex = 0; // 0 para agendar, 1 para ver citas
+  int _selectedTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     tz.initializeTimeZones();
-    _inicializar();
+    tz.setLocalLocation(tz.local);
+    _inicializar(); 
   }
 
   void _inicializar() async {
     await inicializarNotificaciones();
-    await _verificarPermisoNotificacionesUnaVez();
+    await _verificarYSolicitarPermisos();
     await _cargarMascotas();
     await _cargarCitas();
   }
@@ -52,82 +55,372 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    try {
+      await flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          print('Notificación tocada: ${response.payload}');
+        },
+      );
+
+      // Crear canales de notificación para Android
+      if (Platform.isAndroid) {
+        await _crearCanalesNotificacion();
+      }
+    } catch (e) {
+      print('Error al inicializar notificaciones: $e');
+    }
   }
 
-  Future<void> _verificarPermisoNotificacionesUnaVez() async {
-    if (_permisosVerificados) return;
-    
-    if (Platform.isAndroid) {
-      // Verificar permisos de notificación normal
-      final prefs = await SharedPreferences.getInstance();
-      final permisoVerificado = prefs.getBool('permiso_notificaciones_verificado') ?? false;
-      
-      if (!permisoVerificado) {
-        final shouldShowDialog = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Row(
-                children: [
-                  Icon(Icons.notifications_active, color: Color(0xFF8B5CF6)),
-                  SizedBox(width: 8),
-                  Text('Permisos de Notificación'),
-                ],
-              ),
-              content: Text(
-                'Para recibir recordatorios de citas, necesitamos permisos de notificación. ¿Deseas activarlos ahora?',
-                style: TextStyle(fontSize: 16),
-                softWrap: true,
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(false);
-                  },
-                  child: Text('Más tarde'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF8B5CF6),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop(true);
-                  },
-                  child: Text('Activar'),
-                ),
-              ],
-            );
-          },
-        );
+  Future<void> _crearCanalesNotificacion() async {
+    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
 
-        if (shouldShowDialog == true) {
-          // Solicitar permisos de notificación normal
-          final bool? granted = await flutterLocalNotificationsPlugin
-              .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-              ?.requestNotificationsPermission();
-          
-          if (granted == true) {
-            _mostrarSnackBar('Notificaciones activadas correctamente', Colors.green);
-          }
-        }
-        
-        await prefs.setBool('permiso_notificaciones_verificado', true);
-      }
+    if (androidImplementation != null) {
+      // Canal para notificaciones 1 hora antes
+      const AndroidNotificationChannel canalAntes = AndroidNotificationChannel(
+        'recordatorios_citas_antes',
+        'Recordatorios de Citas (1 hora antes)',
+        description: 'Notificaciones de recordatorio de citas veterinarias 1 hora antes',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      );
+
+      // Canal para notificaciones a la hora exacta
+      const AndroidNotificationChannel canalExacta = AndroidNotificationChannel(
+        'recordatorios_citas_exacta',
+        'Recordatorios de Citas (Hora exacta)',
+        description: 'Notificaciones de recordatorio de citas veterinarias a la hora exacta',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      );
+
+      await androidImplementation.createNotificationChannel(canalAntes);
+      await androidImplementation.createNotificationChannel(canalExacta);
     }
+  }
+
+  Future<void> _verificarYSolicitarPermisos() async {
+    if (_permisosVerificados) return;
+
+    if (Platform.isAndroid) {
+      // 1. Primero verificar permisos básicos de notificación
+      await _solicitarPermisoNotificacionesBasicas();
+      
+      // 2. Luego verificar y solicitar permiso de alarmas exactas
+      await _manejarPermisoAlarmasExactas();
+    }
+    
     _permisosVerificados = true;
   }
+
+  Future<void> _solicitarPermisoNotificacionesBasicas() async {
+    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidImplementation != null) {
+      final bool? granted = await androidImplementation.requestNotificationsPermission();
+      
+      if (granted != true) {
+        _mostrarSnackBar('Permisos de notificación requeridos para recordatorios', Colors.orange);
+      }
+    }
+  }
+
+  Future<void> _manejarPermisoAlarmasExactas() async {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      final int sdkInt = androidInfo.version.sdkInt;
+
+      // Android 12 (API 31) y superior necesitan este permiso
+      if (sdkInt < 31) {
+        return; // No se necesita en versiones anteriores
+      }
+
+      // Verificar si ya tenemos el permiso
+      final status = await Permission.scheduleExactAlarm.status;
+      
+      if (status != PermissionStatus.granted) {
+        // Mostrar diálogo explicativo
+        final bool? shouldRequest = await _mostrarDialogoPermisoAlarmas();
+        
+        if (shouldRequest == true) {
+          // Intentar solicitar el permiso
+          final result = await Permission.scheduleExactAlarm.request();
+          
+          if (result != PermissionStatus.granted) {
+            // Si no se concedió, abrir configuración manual
+            await _abrirConfiguracionAlarmasManual();
+          } else {
+            _mostrarSnackBar('Permiso de alarmas concedido', Colors.green);
+          }
+        }
+      }
+    } catch (e) {
+      print('Error al manejar permiso de alarmas: $e');
+      await _abrirConfiguracionAlarmasManual();
+    }
+  }
+
+  Future<bool?> _mostrarDialogoPermisoAlarmas() async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.alarm, color: Color(0xFF8B5CF6)),
+              SizedBox(width: 8),
+              Expanded(child: Text('Permiso Especial Requerido')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Para enviar recordatorios precisos de citas, necesitamos el permiso especial "Alarmas y recordatorios".',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 12),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Esto permitirá:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[800],
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text('• Recordatorios 1 hora antes', style: TextStyle(fontSize: 14)),
+                    Text('• Notificación a la hora exacta', style: TextStyle(fontSize: 14)),
+                    Text('• Funcionamiento en segundo plano', style: TextStyle(fontSize: 14)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: Text('Más tarde'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF8B5CF6),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: Text('Conceder Permiso'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _abrirConfiguracionAlarmasManual() async {
+    try {
+      // Mostrar diálogo con instrucciones
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Configuración Manual'),
+          content: Text(
+            'Sigue estos pasos:\n\n'
+            '1. Se abrirá la configuración\n'
+            '2. Busca "Patitas Care" en la lista\n'
+            '3. Activa "Permitir alarmas y recordatorios"\n'
+            '4. Regresa a la app',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _abrirConfiguracion();
+              },
+              child: Text('Abrir Configuración'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+
+  Future<void> _abrirConfiguracion() async {
+    try {
+      // Intentar abrir configuración específica de alarmas
+      await Permission.scheduleExactAlarm.request();
+      
+      // Fallback: abrir configuración de la app
+      final Uri uri = Uri.parse('app-settings:');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      print('Error al abrir configuración: $e');
+    }
+  }
+
+  Future<void> _programarNotificacion(String titulo, String cuerpo, DateTime fechaCita) async {
+    try {
+      // Verificar permisos antes de programar
+      final status = await Permission.scheduleExactAlarm.status;
+      if (status != PermissionStatus.granted && Platform.isAndroid) {
+        final deviceInfo = DeviceInfoPlugin();
+        final androidInfo = await deviceInfo.androidInfo;
+        if (androidInfo.version.sdkInt >= 31) {
+          _mostrarSnackBar('Se necesita permiso de alarmas exactas', Colors.orange);
+          await _manejarPermisoAlarmasExactas();
+          return;
+        }
+      }
+
+      // Generar IDs únicos
+      final int baseId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final String payload = jsonEncode({
+        'tipo': 'cita',
+        'mascota_id': _selectedMascotaId,
+        'fecha': fechaCita.toIso8601String(),
+      });
+
+      // Notificación 1 hora antes
+      final DateTime notificacionAntes = fechaCita.subtract(Duration(hours: 1));
+      if (notificacionAntes.isAfter(DateTime.now())) {
+        final tz.TZDateTime fechaNotificacionAntes = tz.TZDateTime.from(
+          notificacionAntes,
+          tz.local,
+        );
+
+        // Configuración corregida para Android
+        const AndroidNotificationDetails androidDetailsAntes = AndroidNotificationDetails(
+          'recordatorios_citas_antes',
+          'Recordatorios de Citas (1 hora antes)',
+          channelDescription: 'Notificaciones de recordatorio de citas veterinarias 1 hora antes',
+          importance: Importance.high,
+          priority: Priority.high,
+          showWhen: true,
+          icon: '@mipmap/ic_launcher',
+          playSound: true,
+          enableVibration: true,
+          // Eliminar styleInformation problemático
+          fullScreenIntent: false,
+          category: AndroidNotificationCategory.reminder,
+        );
+
+        const NotificationDetails notificationDetailsAntes = NotificationDetails(
+          android: androidDetailsAntes,
+        );
+
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          baseId,
+          '⏰ Cita en 1 hora - $titulo',
+          cuerpo,
+          fechaNotificacionAntes,
+          notificationDetailsAntes,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          payload: payload,
+        );
+      }
+
+      // Notificación a la hora exacta
+      final tz.TZDateTime fechaProgramada = tz.TZDateTime.from(fechaCita, tz.local);
+
+      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'recordatorios_citas_exacta',
+        'Recordatorios de Citas (Hora exacta)',
+        channelDescription: 'Notificaciones de recordatorio de citas veterinarias a la hora exacta',
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+        icon: '@mipmap/ic_launcher',
+        // Eliminar styleInformation problemático
+        playSound: true,
+        enableVibration: true,
+        fullScreenIntent: false,
+        category: AndroidNotificationCategory.reminder,
+      );
+
+      const NotificationDetails notificationDetails = NotificationDetails(
+        android: androidDetails,
+      );
+
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        baseId + 1,
+        '🐾 ¡Es hora de tu cita!',
+        '$titulo - $cuerpo',
+        fechaProgramada,
+        notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        payload: payload,
+      );
+
+      _mostrarSnackBar('Recordatorios programados correctamente', Colors.green);
+      
+    } catch (e) {
+      print('Error al programar notificación: $e');
+      // No mostrar el error técnico al usuario, pero sí registrar que falló
+      _mostrarSnackBar('Error al programar recordatorio', Colors.orange);
+    }
+  }
+
+
+  void _mostrarSnackBar(String mensaje, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: color,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
 
   Future<void> _cargarMascotas() async {
     try {
@@ -281,81 +574,6 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     }
   }
 
-  Future<void> _programarNotificacion(String titulo, String cuerpo, DateTime fechaCita) async {
-    // Programar notificación 1 hora antes
-    final DateTime notificacionAntes = fechaCita.subtract(Duration(hours: 1));
-    if (notificacionAntes.isAfter(DateTime.now())) {
-      final tz.TZDateTime fechaNotificacionAntes = tz.TZDateTime.from(
-        notificacionAntes,
-        tz.local,
-      );
-
-      const AndroidNotificationDetails androidDetailsAntes =
-          AndroidNotificationDetails(
-            'recordatorios_citas',
-            'Recordatorios de Citas',
-            channelDescription: 'Notificaciones de recordatorio de citas veterinarias',
-            importance: Importance.high,
-            priority: Priority.high,
-            showWhen: true,
-            icon: '@mipmap/ic_launcher',
-            styleInformation: BigTextStyleInformation(''),
-          );
-
-      const NotificationDetails notificationDetailsAntes = NotificationDetails(
-        android: androidDetailsAntes,
-      );
-
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        '⏰ Cita en 1 hora - $titulo',
-        cuerpo,
-        fechaNotificacionAntes,
-        notificationDetailsAntes,
-        androidAllowWhileIdle: true,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.dateAndTime,
-      );
-    }
-
-    // Programar notificación a la hora exacta
-    final tz.TZDateTime fechaProgramada = tz.TZDateTime.from(
-      fechaCita,
-      tz.local,
-    );
-
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'recordatorios_citas',
-          'Recordatorios de Citas',
-          channelDescription: 'Notificaciones de recordatorio de citas veterinarias',
-          importance: Importance.high,
-          priority: Priority.high,
-          showWhen: true,
-          icon: '@mipmap/ic_launcher',
-          styleInformation: BigTextStyleInformation(''),
-          playSound: true,
-          enableVibration: true,
-        );
-
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 1,
-      '🐾 ¡Es hora de tu cita!',
-      '$titulo - $cuerpo',
-      fechaProgramada,
-      notificationDetails,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dateAndTime,
-    );
-  }
-
   Future<void> _seleccionarHora(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -379,19 +597,6 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
         _selectedTime = picked;
       });
     }
-  }
-
-  void _mostrarSnackBar(String mensaje, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: color,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _limpiarCampos() {

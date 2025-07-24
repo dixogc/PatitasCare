@@ -195,7 +195,7 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
 
       print('URL de la petición: $url');
 
-      final response = await AuthService.authenticatedGet(url).timeout(const Duration(seconds: 15));
+      final response = await AuthService.authenticatedGet(url).timeout(const Duration(seconds: 30));
 
       print('Status Code: ${response.statusCode}');
 

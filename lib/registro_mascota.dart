@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:patitas_care/lista_de_mascotas.dart';
 import 'package:patitas_care/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'inicio_page.dart';
 
 class RegistroMascotaPage extends StatefulWidget {
   const RegistroMascotaPage({super.key});
@@ -85,7 +85,7 @@ Future<void> registrarMascota() async {
       
       Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const InicioPage()),
+          MaterialPageRoute(builder: (context) => const MyPetPage()),
         ); 
       
     } else {
