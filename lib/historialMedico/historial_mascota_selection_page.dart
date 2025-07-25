@@ -1,18 +1,17 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:patitas_care/inicio_page.dart';
-import 'package:patitas_care/registro_mascota.dart';
-import 'mi_mascota.dart';
+import 'dart:convert';
 import 'package:patitas_care/auth_service.dart';
+import 'package:patitas_care/historialMedico/historial_medico_list_page.dart';
+import 'package:patitas_care/inicio_page.dart';
 
-class MyPetPage extends StatefulWidget {
-  const MyPetPage({super.key});
+class HistorialMascotaSelectionPage extends StatefulWidget {
+  const HistorialMascotaSelectionPage({super.key});
 
   @override
-  State<MyPetPage> createState() => _MyPetPageState();
+  State<HistorialMascotaSelectionPage> createState() => _HistorialMascotaSelectionPageState();
 }
 
-class _MyPetPageState extends State<MyPetPage> {
+class _HistorialMascotaSelectionPageState extends State<HistorialMascotaSelectionPage> {
   List<Map<String, dynamic>> mascotas = [];
   bool isLoading = true;
   final Color purple = const Color(0xFF8F88F2);
@@ -117,7 +116,7 @@ class _MyPetPageState extends State<MyPetPage> {
                       ),
                       const SizedBox(width: 16),
                       const Text(
-                        'Mis Mascotas',
+                        'Historial Médico',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -127,6 +126,19 @@ class _MyPetPageState extends State<MyPetPage> {
                     ],
                   ),
                 ),
+                // Subtítulo
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                  child: Text(
+                    'Selecciona la mascota para ver su historial médico',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 20),
                 // Contenido principal
                 Expanded(
                   child: isLoading
@@ -137,7 +149,7 @@ class _MyPetPageState extends State<MyPetPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.pets,
+                                Icons.medical_services_outlined,
                                 size: 64,
                                 color: Colors.grey[400],
                               ),
@@ -149,29 +161,14 @@ class _MyPetPageState extends State<MyPetPage> {
                                   color: Colors.grey[600],
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const RegistroMascotaPage(),
-                                    ),
-                                  ).then((_) => cargarMascotas());
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: purple,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Registra una mascota primero para\npoder llevar su historial médico',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
                                 ),
-                                child: const Text('Registrar Primera Mascota'),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
@@ -193,7 +190,7 @@ class _MyPetPageState extends State<MyPetPage> {
                                   backgroundColor: purple.withOpacity(0.2),
                                   radius: 30,
                                   child: Icon(
-                                    Icons.pets,
+                                    Icons.medical_services,
                                     size: 30,
                                     color: purple,
                                   ),
@@ -231,11 +228,12 @@ class _MyPetPageState extends State<MyPetPage> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => PetDetailPage(
+                                      builder: (context) => HistorialMedicoListPage(
                                         mascotaId: mascota['id'],
+                                        mascotaNombre: mascota['nombre'],
                                       ),
                                     ),
-                                  ).then((_) => cargarMascotas());
+                                  );
                                 },
                               ),
                             );
@@ -246,18 +244,6 @@ class _MyPetPageState extends State<MyPetPage> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const RegistroMascotaPage(),
-            ),
-          ).then((_) => cargarMascotas());
-        },
-        backgroundColor: purple,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

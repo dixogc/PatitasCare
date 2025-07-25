@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:patitas_care/login_page.dart';
-import 'registro_mascota.dart';
+import 'mascotas/registro_mascota.dart';
 import 'auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,6 +18,8 @@ class _RegistroPageState extends State<RegistroPage> {
 
   String? rolSeleccionado;
   final List<String> roles = ['CLIENTE', 'VETERINARIO'];
+  bool esVeterinario = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -33,6 +35,10 @@ Future<void> registrarUsuario(
   String password,
   String tipoUsuario,
 ) async {
+  setState(() {
+    _isLoading = true;
+  });
+
   try {
     final result = await AuthService.registrarUsuario(
       nombre: nombre,
@@ -73,19 +79,26 @@ Future<void> registrarUsuario(
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Error de conexión: $e'))
     );
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
 }
 
   bool _validarCampos() {
     if (nombreController.text.isEmpty ||
         correoController.text.isEmpty ||
-        passwordController.text.isEmpty ||
-        rolSeleccionado == null) {
+        passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, completa todos los campos.')),
       );
       return false;
     }
+    
+    // Asegurar que rolSeleccionado tenga un valor basado en esVeterinario
+    rolSeleccionado = esVeterinario ? 'VETERINARIO' : 'CLIENTE';
+    
     return true;
   }
 
@@ -109,30 +122,25 @@ Future<void> registrarUsuario(
     );
   }
 
-  Widget _buildDropdownRol() {
+  Widget _buildRolSelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F6F8),
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: DropdownButtonFormField<String>(
-        value: rolSeleccionado,
-        isExpanded: true,
-        hint: const Text('Tipo de Usuario'),
-        items: roles.map((rol) {
-          return DropdownMenuItem(value: rol, child: Text(rol));
-        }).toList(),
-        onChanged: (value) {
+      child: CheckboxListTile(
+        title: const Text('Soy veterinario'),
+        subtitle: Text(esVeterinario ? 'Registrándote como veterinario' : 'Registrándote como usuario común'),
+        value: esVeterinario,
+        onChanged: (bool? value) {
           setState(() {
-            rolSeleccionado = value;
+            esVeterinario = value ?? false;
+            // Actualizar rolSeleccionado para el backend
+            rolSeleccionado = esVeterinario ? 'VETERINARIO' : 'CLIENTE';
           });
         },
-        decoration: const InputDecoration(
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-          border: InputBorder.none,
-        ),
+        activeColor: const Color(0xFFB6A9F8),
+        controlAffinity: ListTileControlAffinity.leading,
       ),
     );
   }
@@ -186,35 +194,39 @@ Future<void> registrarUsuario(
                 isPassword: true,
               ),
               const SizedBox(height: 15),
-              _buildDropdownRol(),
+              _buildRolSelector(),
               const SizedBox(height: 35),
               Center(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (_validarCampos()) {
-                      await registrarUsuario(
-                        nombreController.text,
-                        correoController.text,
-                        passwordController.text,
-                        rolSeleccionado!,
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0XFFB6A9F8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 55,
-                      vertical: 15,
-                    ),
-                  ),
-                  child: const Text(
-                    'COMENZAR',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB6A9F8)),
+                      )
+                    : ElevatedButton(
+                        onPressed: () async {
+                          if (_validarCampos()) {
+                            await registrarUsuario(
+                              nombreController.text,
+                              correoController.text,
+                              passwordController.text,
+                              rolSeleccionado!,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0XFFB6A9F8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 55,
+                            vertical: 15,
+                          ),
+                        ),
+                        child: const Text(
+                          'COMENZAR',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
               ),
             ],
           ),

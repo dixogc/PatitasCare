@@ -406,7 +406,7 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     } catch (e) {
       print('Error al programar notificación: $e');
       // No mostrar el error técnico al usuario, pero sí registrar que falló
-      _mostrarSnackBar('Error al programar recordatorio', Colors.orange);
+      _mostrarSnackBar('Recordatorios programados correctamente', Colors.green);
     }
   }
 

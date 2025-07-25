@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:patitas_care/lista_de_mascotas.dart';
+import 'package:patitas_care/auth_service.dart';
+import 'package:patitas_care/mascotas/lista_de_mascotas.dart';
 import 'package:patitas_care/login_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class RegistroMascotaPage extends StatefulWidget {
   const RegistroMascotaPage({super.key});
@@ -22,6 +22,8 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
 
   String? especieSeleccionado;
   final List<String> especie = ['Perro', 'Gato', 'Conejo', 'Tortuga', 'Otro'];
+  
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -35,13 +37,16 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
   }
 
 Future<void> registrarMascota() async {
-  // Validar campos primero
+  
   if (!_validarCampos()) {
     return;
   }
 
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('token');
+  setState(() {
+    _isLoading = true;
+  });
+
+  final token = await AuthService.getToken();
 
   if (token == null) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -108,39 +113,43 @@ Future<void> registrarMascota() async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Error de conexión: $e')),
     );
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
 }
 
   bool _validarCampos() {
-  if (nombreController.text.isEmpty ||
-      edadController.text.isEmpty ||
-      razaController.text.isEmpty ||
-      pesoController.text.isEmpty ||
-      sizeController.text.isEmpty ||
-      colorController.text.isEmpty ||
-      especieSeleccionado == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Por favor, completa todos los campos.')),
-    );
-    return false;
-  }
+    if (nombreController.text.isEmpty ||
+        edadController.text.isEmpty ||
+        razaController.text.isEmpty ||
+        pesoController.text.isEmpty ||
+        sizeController.text.isEmpty ||
+        colorController.text.isEmpty ||
+        especieSeleccionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, completa todos los campos.')),
+      );
+      return false;
+    }
 
-  if (double.tryParse(pesoController.text) == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('El peso debe ser un número válido.')),
-    );
-    return false;
-  }
+    if (double.tryParse(pesoController.text) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El peso debe ser un número válido.')),
+      );
+      return false;
+    }
 
-  if (int.tryParse(sizeController.text) == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('El tamaño debe ser un número válido.')),
-    );
-    return false;
-  }
+    if (int.tryParse(sizeController.text) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El tamaño debe ser un número válido.')),
+      );
+      return false;
+    }
 
-  return true;
-}
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,19 +217,20 @@ Future<void> registrarMascota() async {
                   ],
                 ),
                 const SizedBox(height: 40),
+                // Botón con animación de carga
                 ElevatedButton(
                   onPressed: () {
                     if (_validarCampos()) {
                       registrarMascota();
                     }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFDD4A),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFDD4A),
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
                   child: const Text(
                     'AGREGAR MASCOTA',
                     style: TextStyle(
