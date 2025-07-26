@@ -9,42 +9,47 @@ import org.springframework.stereotype.Component;
 @Component
 public class MascotaMapper {
 
-    public Mascota toEntityForCreate(MascotaRequestDTO dto, Cliente cliente){
+    public Mascota toEntityForCreate(MascotaRequestDTO dto, Cliente cliente) {
         return Mascota.builder()
                 .cliente(cliente)
                 .nombre(dto.getNombre())
                 .especie(dto.getEspecie())
                 .raza(dto.getRaza())
+                .sexo(dto.getSexo())
+                .esterilizado(dto.getEsterilizado())
+                .fechaNacimiento(dto.getFechaNacimiento())
                 .edad(dto.getEdad())
-                .peso(dto.getPeso())
-                .size(dto.getSize())
                 .color(dto.getColor())
                 .build();
     }
-    public Mascota toEntityForUpdate(MascotaRequestDTO dto, String id, Cliente cliente){
+
+    public Mascota toEntityForUpdate(MascotaRequestDTO dto, String id, Cliente cliente) {
         return Mascota.builder()
                 .id(id)
                 .cliente(cliente)
                 .nombre(dto.getNombre())
                 .especie(dto.getEspecie())
                 .raza(dto.getRaza())
+                .sexo(dto.getSexo())
+                .esterilizado(dto.getEsterilizado())
+                .fechaNacimiento(dto.getFechaNacimiento())
                 .edad(dto.getEdad())
-                .peso(dto.getPeso())
-                .size(dto.getSize())
                 .color(dto.getColor())
                 .build();
     }
-    public MascotaResponseDTO toResponseDTO(Mascota mascota){
-        return new MascotaResponseDTO(
-                mascota.getId(),
-                mascota.getCliente().getId(),
-                mascota.getNombre(),
-                mascota.getEspecie(),
-                mascota.getRaza(),
-                mascota.getEdad(),
-                mascota.getPeso(),
-                mascota.getSize(),
-                mascota.getColor()
-        );
+
+    public MascotaResponseDTO toResponseDTO(Mascota mascota) {
+        return MascotaResponseDTO.builder()
+                .id(mascota.getId())
+                .clienteId(mascota.getCliente().getId())
+                .nombre(mascota.getNombre())
+                .especie(mascota.getEspecie())
+                .raza(mascota.getRaza())
+                .sexo(mascota.getSexo())
+                .esterilizado(mascota.getEsterilizado())
+                .fechaNacimiento(mascota.getFechaNacimiento())
+                .edad(mascota.getEdad())
+                .color(mascota.getColor())
+                .build();
     }
 }

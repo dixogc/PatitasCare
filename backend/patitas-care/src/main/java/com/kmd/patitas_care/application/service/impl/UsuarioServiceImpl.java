@@ -63,13 +63,13 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
     }
 
     @Override
-    public Cliente buscarClientePorId(String id){
+    public Cliente buscarClientePorId(String id) {
         return clienteRepository.buscarPorId(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
     }
 
     @Override
-    public Veterinario buscarVeterinarioPorId(String id){
+    public Veterinario buscarVeterinarioPorId(String id) {
         return veterinarioRepository.buscarPorId(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
     }
@@ -131,7 +131,7 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
 
     @Override
     public void eliminarCliente(String id) {
-        if(!clienteRepository.buscarPorId(id).isPresent()){
+        if (!clienteRepository.buscarPorId(id).isPresent()) {
             throw new UserNotFoundException(id);
         }
         clienteRepository.eliminarPorId(id);
@@ -139,7 +139,7 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
 
     @Override
     public void eliminarVeterinario(String id) {
-        if (!veterinarioRepository.buscarPorId(id).isPresent()){
+        if (!veterinarioRepository.buscarPorId(id).isPresent()) {
             throw new UserNotFoundException(id);
         }
         veterinarioRepository.eliminarPorId(id);
@@ -155,26 +155,13 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
                         m.getNombre(),
                         m.getEspecie(),
                         m.getRaza(),
+                        m.getSexo(),
+                        m.getEsterilizado(),
+                        m.getFechaNacimiento(),
                         m.getEdad(),
-                        m.getPeso(),
-                        m.getSize(),
                         m.getColor()))
                 .toList();
 
-        return new PerfilClienteDTO(cliente.getId(),cliente.getNombre(), cliente.getCorreo(), mascotasDTO);
+        return new PerfilClienteDTO(cliente.getId(), cliente.getNombre(), cliente.getCorreo(), mascotasDTO);
     }
-
-    //    @Override
-//    public List<Cliente> obtenerTodosLosClientes() {
-//        return clienteRepository.obtenerTodos();
-//    }
-//
-//    @Override
-//    public List<Veterinario> obtenerTodosLosVeterinarios() {
-//        return veterinarioRepository.obtenerTodos();
-//    }
-    //    @Override
-//    public Usuario iniciarSesion(String correo, String password) {
-//        return usuarioRepository.guardar(usuario);
-//    }
 }
