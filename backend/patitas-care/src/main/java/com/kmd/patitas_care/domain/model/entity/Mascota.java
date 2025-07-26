@@ -44,7 +44,7 @@ public class Mascota {
     private LocalDate fechaNacimiento;
 
     @Column(name = "edad")
-    private int edad;
+    private Integer edad;
 
     @Column(name = "color")
     private String color;
