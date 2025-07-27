@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'registro_page.dart';
 import 'login_page.dart';
-
+import 'package:flutter_localizations/flutter_localizations.dart';
 void main() {
   runApp(const PatitasCareApp());
 }
@@ -14,6 +14,18 @@ class PatitasCareApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Patitas Care',
+      
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'ES'), // Español (principal)
+        Locale('en', 'US'), // Inglés (fallback)
+      ],
+      locale: const Locale('es', 'ES'), // Idioma por defecto
+      
       home: const WelcomeScreen(),
     );
   }

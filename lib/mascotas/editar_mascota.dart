@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:patitas_care/auth_service.dart';
 
 
 class EditPetPage extends StatefulWidget {
@@ -21,38 +21,101 @@ class EditPetPage extends StatefulWidget {
 class _EditPetPageState extends State<EditPetPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController nombreController;
+  late TextEditingController especieController;
   late TextEditingController razaController;
   late TextEditingController edadController;
-  late TextEditingController pesoController;
-  late TextEditingController sizeController;
   late TextEditingController colorController;
-  String? especieSeleccionada;
+  
+  String? sexoSeleccionado;
+  DateTime? fechaNacimientoSeleccionada;
+  bool? esterilizado;
   bool isLoading = false;
 
+  final List<String> sexoOpciones = ['Hembra', 'Macho', 'Desconocido'];
   final Color purple = const Color(0xFF8F88F2);
   final Color yellow = const Color(0xFFF9DC5C);
 
   @override
   void initState() {
     super.initState();
-    nombreController = TextEditingController(text: widget.mascotaData['nombre']);
-    razaController = TextEditingController(text: widget.mascotaData['raza']);
-    edadController = TextEditingController(text: widget.mascotaData['edad'].toString());
-    pesoController = TextEditingController(text: widget.mascotaData['peso'].toString());
-    sizeController = TextEditingController(text: widget.mascotaData['size'].toString());
-    colorController = TextEditingController(text: widget.mascotaData['color']);
-    especieSeleccionada = widget.mascotaData['especie'];
+    _inicializarControladores();
+  }
+
+  void _inicializarControladores() {
+    nombreController = TextEditingController(
+      text: widget.mascotaData['nombre'] ?? ''
+    );
+    especieController = TextEditingController(
+      text: widget.mascotaData['especie'] ?? ''
+    );
+    razaController = TextEditingController(
+      text: widget.mascotaData['raza'] ?? ''
+    );
+    edadController = TextEditingController(
+      text: widget.mascotaData['edad']?.toString() ?? ''
+    );
+    colorController = TextEditingController(
+      text: widget.mascotaData['color'] ?? ''
+    );
+
+    // Inicializar sexo
+    String? sexoBackend = widget.mascotaData['sexo'];
+    if (sexoBackend != null) {
+      switch (sexoBackend.toUpperCase()) {
+        case 'HEMBRA':
+          sexoSeleccionado = 'Hembra';
+          break;
+        case 'MACHO':
+          sexoSeleccionado = 'Masculino';
+          break;
+        case 'DESCONOCIDO':
+          sexoSeleccionado = 'Desconocido';
+          break;
+        default:
+          sexoSeleccionado = 'Desconocido';
+      }
+    } else {
+      sexoSeleccionado = 'Desconocido';
+    }
+
+    // Inicializar esterilizado
+    esterilizado = widget.mascotaData['esterilizado'];
+
+    // Inicializar fecha de nacimiento
+    String? fechaString = widget.mascotaData['fechaNacimiento'];
+    if (fechaString != null && fechaString.isNotEmpty) {
+      try {
+        fechaNacimientoSeleccionada = DateTime.parse(fechaString);
+      } catch (e) {
+        fechaNacimientoSeleccionada = null;
+      }
+    }
   }
 
   @override
   void dispose() {
     nombreController.dispose();
+    especieController.dispose();
     razaController.dispose();
     edadController.dispose();
-    pesoController.dispose();
-    sizeController.dispose();
     colorController.dispose();
     super.dispose();
+  }
+
+  Future<void> _seleccionarFecha() async {
+    final DateTime? fechaSeleccionada = await showDatePicker(
+      context: context,
+      initialDate: fechaNacimientoSeleccionada ?? DateTime.now().subtract(const Duration(days: 365)),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      locale: const Locale('es', 'ES'),
+    );
+    
+    if (fechaSeleccionada != null) {
+      setState(() {
+        fechaNacimientoSeleccionada = fechaSeleccionada;
+      });
+    }
   }
 
   Future<void> actualizarMascota() async {
@@ -62,8 +125,7 @@ class _EditPetPageState extends State<EditPetPage> {
       isLoading = true;
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await AuthService.getToken();
 
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -79,21 +141,47 @@ class _EditPetPageState extends State<EditPetPage> {
       final baseUrl = 'https://patitas-care.onrender.com';
       final url = Uri.parse('$baseUrl/mascotas/mis-mascotas/${widget.mascotaId}');
 
+      // Preparar el cuerpo de la petición
+      Map<String, dynamic> requestBody = {
+        'nombre': nombreController.text,
+        'especie': especieController.text
+      };
+
+      // Agregar campos opcionales solo si tienen valor
+      if (razaController.text.isNotEmpty) {
+        requestBody['raza'] = razaController.text;
+      }
+      
+      if (sexoSeleccionado != null) {
+        requestBody['sexo'] = sexoSeleccionado!.toUpperCase();
+      }
+      
+      if (esterilizado != null) {
+        requestBody['esterilizado'] = esterilizado;
+      }
+      
+      if (fechaNacimientoSeleccionada != null) {
+        requestBody['fechaNacimiento'] = fechaNacimientoSeleccionada!.toIso8601String().split('T')[0];
+      }
+      
+      if (edadController.text.isNotEmpty) {
+        final edad = int.tryParse(edadController.text);
+        if (edad != null) {
+          requestBody['edad'] = edad;
+        }
+      }
+      
+      if (colorController.text.isNotEmpty) {
+        requestBody['color'] = colorController.text;
+      }
+
       final response = await http.put(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'nombre': nombreController.text,
-          'especie': especieSeleccionada,
-          'raza': razaController.text,
-          'edad': int.tryParse(edadController.text) ?? 0,
-          'peso': double.tryParse(pesoController.text) ?? 0.0,
-          'size': sizeController.text,
-          'color': colorController.text,
-        }),
+        body: jsonEncode(requestBody),
       );
 
       if (response.statusCode == 200) {
@@ -183,19 +271,21 @@ class _EditPetPageState extends State<EditPetPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildTextField('Nombre:', nombreController),
+                          _buildTextField('Nombre *:', nombreController),
                           const SizedBox(height: 20),
-                          _buildDropdownField(),
+                          _buildTextField('Especie *:', especieController),
                           const SizedBox(height: 20),
                           _buildTextField('Raza:', razaController),
                           const SizedBox(height: 20),
-                          _buildTextField('Edad:', edadController, TextInputType.number),
-                          const SizedBox(height: 20),
-                          _buildTextField('Peso (kg):', pesoController, TextInputType.number),
-                          const SizedBox(height: 20),
-                          _buildTextField('Tamaño (cm):', sizeController),
+                          _buildDropdownField(),
                           const SizedBox(height: 20),
                           _buildTextField('Color:', colorController),
+                          const SizedBox(height: 20),
+                          _buildTextField('Edad:', edadController, TextInputType.number),
+                          const SizedBox(height: 20),
+                          _buildDateField(),
+                          const SizedBox(height: 20),
+                          _buildCheckboxField(),
                           const SizedBox(height: 40),
                           SizedBox(
                             width: double.infinity,
@@ -227,7 +317,7 @@ class _EditPetPageState extends State<EditPetPage> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, [TextInputType? keyboardType]) {
+  Widget _buildTextField(String label, TextEditingController controller, [TextInputType? keyboardType, bool isRequired = false]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -243,9 +333,15 @@ class _EditPetPageState extends State<EditPetPage> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          validator: (value) {
+          validator: isRequired ? (value) {
             if (value == null || value.isEmpty) {
               return 'Este campo es obligatorio';
+            }
+            return null;
+          } : (value) {
+            // Validar edad si se proporcionó
+            if (label.contains('Edad') && value != null && value.isNotEmpty && int.tryParse(value) == null) {
+              return 'La edad debe ser un número válido';
             }
             return null;
           },
@@ -268,7 +364,7 @@ class _EditPetPageState extends State<EditPetPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Especie:',
+          'Sexo:',
           style: TextStyle(
             fontSize: 16,
             color: Colors.black87,
@@ -277,13 +373,7 @@ class _EditPetPageState extends State<EditPetPage> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: especieSeleccionada,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Selecciona una especie';
-            }
-            return null;
-          },
+          value: sexoSeleccionado,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFE8E8E8),
@@ -293,17 +383,98 @@ class _EditPetPageState extends State<EditPetPage> {
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
-          items: ['PERRO', 'GATO', 'CONEJO', 'TORTUGA', 'OTRO']
-              .map((especie) => DropdownMenuItem(
-                    value: especie,
-                    child: Text(especie),
-                  ))
-              .toList(),
+          items: sexoOpciones.map((sexo) => DropdownMenuItem(
+                value: sexo,
+                child: Text(sexo),
+              )).toList(),
           onChanged: (value) {
             setState(() {
-              especieSeleccionada = value;
+              sexoSeleccionado = value;
             });
           },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Fecha de nacimiento:',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _seleccionarFecha,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8E8E8),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    fechaNacimientoSeleccionada != null
+                        ? '${fechaNacimientoSeleccionada!.day.toString().padLeft(2, '0')}/${fechaNacimientoSeleccionada!.month.toString().padLeft(2, '0')}/${fechaNacimientoSeleccionada!.year}'
+                        : 'Seleccionar fecha',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: fechaNacimientoSeleccionada != null
+                          ? Colors.black
+                          : Colors.grey[600],
+                    ),
+                  ),
+                ),
+                Icon(Icons.calendar_today, color: Colors.grey[600]),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCheckboxField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '¿Está esterilizado/a?:',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8E8E8),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: CheckboxListTile(
+            title: const Text('Sí, está esterilizado/a'),
+            value: esterilizado ?? false,
+            onChanged: (value) {
+              setState(() {
+                esterilizado = value;
+              });
+            },
+            controlAffinity: ListTileControlAffinity.leading,
+            activeColor: purple,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:patitas_care/inicio_page.dart';
 import 'package:patitas_care/mascotas/registro_mascota.dart';
 import 'mi_mascota.dart';
 import 'package:patitas_care/auth_service.dart';
+import 'package:patitas_care/notification_helper.dart';
 
 class MyPetPage extends StatefulWidget {
   const MyPetPage({super.key});
@@ -32,12 +33,13 @@ class _MyPetPageState extends State<MyPetPage> {
     final token = await AuthService.getToken();
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Token no encontrado. Inicia sesión nuevamente.'),
-        ),
+      context.showErrorNotification(
+        'Sesión expirada. Por favor, inicia sesión nuevamente.',
+        actionLabel: 'Iniciar Sesión',
+        onAction: () {
+          Navigator.pushReplacementNamed(context, '/auth/login');
+        },
       );
-      Navigator.pushReplacementNamed(context, '/auth/login');
       return;
     }
 
@@ -59,10 +61,33 @@ class _MyPetPageState extends State<MyPetPage> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      
+      context.showErrorNotification(
+        'Error al cargar tus mascotas. Verifica tu conexión.',
+        actionLabel: 'Reintentar',
+        onAction: () => cargarMascotas(),
+      );
     }
+  }
+
+  String _formatearSexo(String? sexo) {
+    if (sexo == null || sexo.isEmpty) return 'Sin especificar';
+    
+    switch (sexo.toUpperCase()) {
+      case 'FEMENINO':
+        return 'Femenino';
+      case 'MASCULINO':
+        return 'Masculino';
+      case 'DESCONOCIDO':
+        return 'Desconocido';
+      default:
+        return sexo;
+    }
+  }
+
+  String _formatearEdad(int? edad) {
+    if (edad == null) return 'Sin especificar';
+    return edad == 1 ? '$edad año' : '$edad años';
   }
 
   @override
@@ -215,7 +240,7 @@ class _MyPetPageState extends State<MyPetPage> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${mascota['edad'] ?? 0} años • ${mascota['peso'] ?? 0} kg',
+                                      '${_formatearEdad(mascota['edad'])} • ${_formatearSexo(mascota['sexo'])}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],
