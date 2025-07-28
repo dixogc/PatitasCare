@@ -29,7 +29,7 @@ public class MascotaResponseDTO {
 
     private LocalDate fechaNacimiento;
 
-    private int edad;
+    private Integer edad;
 
     private String color;
 }
