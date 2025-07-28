@@ -18,18 +18,12 @@ import java.util.List;
 
 @Entity
 public class Cliente extends Usuario implements Autenticable, UserDetails {
-    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Mascota> mascotas;
 
     public Cliente(){}
 
     public Cliente(String id, String nombre, String correo, String passwordHash, TipoDeUsuario tipo){
         super(id, nombre, correo, passwordHash, tipo);
 
-    }
-
-    public List<Mascota> getMascotas() {
-        return mascotas;
     }
 
     @Override

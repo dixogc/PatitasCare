@@ -184,8 +184,7 @@ public class ClienteController {
         PerfilClienteDTO perfil = new PerfilClienteDTO(
                 cliente.getId(),
                 cliente.getNombre(),
-                cliente.getCorreo(),
-                mascotas
+                cliente.getCorreo()
         );
 
         return ResponseEntity.ok(perfil);

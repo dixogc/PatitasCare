@@ -149,19 +149,6 @@ public class UsuarioServiceImpl implements UsuarioDomainService {
         Cliente cliente = clienteRepository.buscarPorId(clienteId)
                 .orElseThrow(() -> new UserNotFoundException("Cliente no encontrado"));
 
-        List<MascotaResponseDTO> mascotasDTO = cliente.getMascotas().stream()
-                .map(m -> new MascotaResponseDTO(m.getId(),
-                        m.getCliente().getId(),
-                        m.getNombre(),
-                        m.getEspecie(),
-                        m.getRaza(),
-                        m.getSexo(),
-                        m.getEsterilizado(),
-                        m.getFechaNacimiento(),
-                        m.getEdad(),
-                        m.getColor()))
-                .toList();
-
-        return new PerfilClienteDTO(cliente.getId(), cliente.getNombre(), cliente.getCorreo(), mascotasDTO);
+        return new PerfilClienteDTO(cliente.getId(), cliente.getNombre(), cliente.getCorreo());
     }
 }

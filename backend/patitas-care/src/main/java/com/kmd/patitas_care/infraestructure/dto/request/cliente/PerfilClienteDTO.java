@@ -14,5 +14,4 @@ public class PerfilClienteDTO {
     private String id;
     private String nombre;
     private String correo;
-    private List<MascotaResponseDTO> mascotas;
 }

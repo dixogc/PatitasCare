@@ -19,10 +19,6 @@ public class UsuarioFactory {
                 .setCorreo(correo)
                 .setPasswordHash(passwordHash)
                 .setTipo(TipoDeUsuario.CLIENTE)
-//                .setMascotas(new ArrayList<>())
-//                .setCitas(new ArrayList<>())
-//                .setMensajes(new ArrayList<>())
-//                .setNotificaciones(new ArrayList<>())
                 .build();
     }
     public static Veterinario crearVeterinario(String nombre, String correo, String passwordHash, TipoDeUsuario tipoDeUsuario){
@@ -32,10 +28,6 @@ public class UsuarioFactory {
                 .setCorreo(correo)
                 .setPasswordHash(passwordHash)
                 .setTipo(TipoDeUsuario.VETERINARIO)
-//                .setClinicas(new ArrayList<>())
-//                .setCitas(new ArrayList<>())
-//                .setConsultas(new ArrayList<>())
-//                .setMensajes(new ArrayList<>())
                 .build();
     }
 }
