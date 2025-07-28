@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:patitas_care/ajustes_page.dart';
 import 'package:patitas_care/calendario.dart';
 import 'package:patitas_care/historialMedico/historial_mascota_selection_page.dart';
 import 'package:patitas_care/mascotas/lista_de_mascotas.dart';
@@ -31,6 +32,15 @@ class HomePage extends StatelessWidget {
         currentIndex: 0,
         selectedItemColor: purple,
         unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          if (index == 1) {
+            // Navegar a ajustes cuando se toque el ícono de la bottom bar
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AjustesPage()),
+            );
+          }
+        },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -46,12 +56,32 @@ class HomePage extends StatelessWidget {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text(
+                children: [
+                  const Text(
                     'Hola, Bienvenido!',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-                  Icon(Icons.settings),
+                  // Cambio principal: convertir el ícono en un botón
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AjustesPage()),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: purple.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.settings,
+                        color: purple,
+                        size: 28,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
@@ -134,7 +164,7 @@ class HomePage extends StatelessWidget {
                   _buildTile(
                     context,
                     'Mapa',
-                    Icons.map, // Cambiado de sports_martial_arts a map
+                    Icons.map, 
                     purple,
                     () => Navigator.pushReplacement(
                       context,
