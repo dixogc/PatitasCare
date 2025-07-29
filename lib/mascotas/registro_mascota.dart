@@ -241,13 +241,10 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
                   const SizedBox(height: 30),
                   _buildTextField('Nombre de tu mascota *', nombreController),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(child: _buildTextField('Especie *', especieController)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildTextField('Raza', razaController)),
-                    ],
-                  ),
+                  // Cambiamos el layout para dar más espacio a los campos importantes
+                  _buildTextField('Especie (perro, gato, etc.) *', especieController),
+                  const SizedBox(height: 20),
+                  _buildTextField('Raza', razaController),
                   const SizedBox(height: 20),
                   Row(
                     children: [
@@ -259,9 +256,15 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      Expanded(child: _buildTextField('Edad', edadController)),
+                      Expanded(
+                        flex: 1,
+                        child: _buildTextField('Edad', edadController)
+                      ),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildDateField()),
+                      Expanded(
+                        flex: 2, // Damos más espacio al campo de fecha
+                        child: _buildDateField()
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -361,13 +364,14 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
                       ? '${fechaNacimientoSeleccionada!.day}/${fechaNacimientoSeleccionada!.month}/${fechaNacimientoSeleccionada!.year}'
                       : 'Fecha de nacimiento',
                   style: TextStyle(
+                    fontSize: 14, // Reducimos ligeramente el tamaño para que quepa mejor
                     color: fechaNacimientoSeleccionada != null
                         ? Colors.black
                         : Colors.grey[600],
                   ),
                 ),
               ),
-              Icon(Icons.calendar_today, color: Colors.grey[600]),
+              Icon(Icons.calendar_today, color: Colors.grey[600], size: 20),
             ],
           ),
         ),

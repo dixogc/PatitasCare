@@ -105,7 +105,6 @@ class _AjustesPageState extends State<AjustesPage> {
         setState(() {
           _perfilUsuario = resultado;
         });
-        _mostrarSnackBar('Perfil actualizado exitosamente', Colors.green);
       }
     } catch (e) {
       print('Error al abrir editar perfil: $e');

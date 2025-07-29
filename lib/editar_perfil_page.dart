@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:patitas_care/auth_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:patitas_care/notification_helper.dart';
+import 'package:patitas_care/success_feedback_widget.dart';
 
 class EditarPerfilPage extends StatefulWidget {
   final Map<String, dynamic> perfilActual;
@@ -18,7 +20,6 @@ class EditarPerfilPage extends StatefulWidget {
 class _EditarPerfilPageState extends State<EditarPerfilPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nombreController = TextEditingController();
-  final TextEditingController _correoController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmarPasswordController = TextEditingController();
   
@@ -26,10 +27,10 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
   bool _mostrarPassword = false;
   bool _mostrarConfirmarPassword = false;
   bool _cambiarPassword = false;
+  bool _showSuccessAnimation = false;
 
   // Estados de validación en tiempo real
   String? _nombreError;
-  String? _correoError;
   String? _passwordError;
   String? _confirmarPasswordError;
 
@@ -41,13 +42,11 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
   void _cargarDatosActuales() {
     _nombreController.text = widget.perfilActual['nombre']?.toString() ?? '';
-    _correoController.text = widget.perfilActual['correo']?.toString() ?? '';
   }
 
   @override
   void dispose() {
     _nombreController.dispose();
-    _correoController.dispose();
     _passwordController.dispose();
     _confirmarPasswordController.dispose();
     super.dispose();
@@ -65,21 +64,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
         _nombreError = 'El nombre es demasiado largo';
       } else {
         _nombreError = null;
-      }
-    });
-  }
-
-  void _validarCorreo() {
-    final correo = _correoController.text.trim();
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    
-    setState(() {
-      if (correo.isEmpty) {
-        _correoError = 'El correo es obligatorio';
-      } else if (!emailRegex.hasMatch(correo)) {
-        _correoError = 'El formato del correo no es válido';
-      } else {
-        _correoError = null;
       }
     });
   }
@@ -122,19 +106,14 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
   bool _formularioValido() {
     return _nombreError == null &&
-           _correoError == null &&
            _passwordError == null &&
            _confirmarPasswordError == null &&
            _nombreController.text.trim().isNotEmpty &&
-           _correoController.text.trim().isNotEmpty &&
            (!_cambiarPassword || _passwordController.text.isNotEmpty);
   }
 
   String _getReadableErrorMessage(String originalMessage) {
-    if (originalMessage.toLowerCase().contains('email') || 
-        originalMessage.toLowerCase().contains('correo')) {
-      return 'Este correo ya está registrado con otra cuenta';
-    } else if (originalMessage.toLowerCase().contains('password') || 
+    if (originalMessage.toLowerCase().contains('password') || 
                originalMessage.toLowerCase().contains('contraseña')) {
       return 'Error en la contraseña. Verifica que tenga al menos 8 caracteres';
     } else if (originalMessage.toLowerCase().contains('network') || 
@@ -149,12 +128,11 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
   Future<void> _actualizarPerfil() async {
     // Validar todos los campos
     _validarNombre();
-    _validarCorreo();
     _validarPassword();
     _validarConfirmarPassword();
 
     if (!_formularioValido()) {
-      _mostrarSnackBar('Por favor corrige los errores en el formulario', Colors.red);
+      context.showErrorNotification('Por favor contesta los campos obligatorios');
       return;
     }
 
@@ -165,21 +143,21 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
-        _mostrarSnackBar('Error de autenticación. Inicia sesión nuevamente', Colors.red);
+        context.showErrorNotification('Error de autenticación. Inicia sesión nuevamente');
         return;
       }
 
       // Obtener el ID del usuario desde el perfil actual
       final String userId = widget.perfilActual['id']?.toString() ?? '';
       if (userId.isEmpty) {
-        _mostrarSnackBar('Error: No se pudo obtener el ID del usuario', Colors.red);
+        context.showErrorNotification('Error: No se pudo obtener el ID del usuario');
         return;
       }
 
-      // Preparar los datos para enviar
+      // Preparar los datos para enviar (solo nombre, el correo se mantiene igual)
       final Map<String, dynamic> datosActualizacion = {
         'nombre': _nombreController.text.trim(),
-        'correo': _correoController.text.trim(),
+        'correo': widget.perfilActual['correo']?.toString() ?? '', // Mantener el correo actual
       };
 
       // Solo incluir password si se quiere cambiar
@@ -200,12 +178,13 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
       ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
+        // ignore: unused_local_variable
         final Map<String, dynamic> usuarioActualizado = json.decode(response.body);
         
-        _mostrarSnackBar('Perfil actualizado exitosamente', Colors.green);
-        
-        // Regresar a la pantalla anterior con los datos actualizados
-        Navigator.of(context).pop(usuarioActualizado);
+        // Mostrar animación de éxito
+        setState(() {
+          _showSuccessAnimation = true;
+        });
         
       } else {
         try {
@@ -213,17 +192,17 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
           final errorMessage = _getReadableErrorMessage(
             errorData['mensaje'] ?? errorData['message'] ?? errorData.toString()
           );
-          _mostrarSnackBar(errorMessage, Colors.red);
+          context.showErrorNotification(errorMessage);
         } catch (e) {
-          _mostrarSnackBar('Error del servidor. Código: ${response.statusCode}', Colors.red);
+          context.showErrorNotification('Error del servidor. Código: ${response.statusCode}');
         }
       }
     } catch (e) {
       print('Error al actualizar perfil: $e');
       if (e.toString().contains('TimeoutException')) {
-        _mostrarSnackBar('La solicitud tomó demasiado tiempo. Intenta de nuevo', Colors.orange);
+        context.showWarningNotification('La solicitud tomó demasiado tiempo. Intenta de nuevo');
       } else {
-        _mostrarSnackBar('Error de conexión. Verifica tu internet', Colors.red);
+        context.showErrorNotification('Error de conexión. Verifica tu internet');
       }
     } finally {
       setState(() {
@@ -232,19 +211,17 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     }
   }
 
-  void _mostrarSnackBar(String mensaje, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: color,
-        duration: Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
+  void _onSuccessComplete() {
+    // Cuando termine la animación de éxito, regresar a la pantalla anterior
+    final Map<String, dynamic> usuarioActualizado = {
+      ...widget.perfilActual,
+      'nombre': _nombreController.text.trim(),
+    };
+    Navigator.of(context).pop(usuarioActualizado);
   }
+
+  // Método removido - ahora usamos las notificaciones personalizadas
+  // void _mostrarSnackBar(String mensaje, Color color) { ... }
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -361,6 +338,101 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     );
   }
 
+  Widget _buildCorreoInfoSection() {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Color(0xFFE5E7EB),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.email,
+                color: Color(0xFF6B7280),
+                size: 24,
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Correo Electrónico',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF374151),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.email_outlined,
+                  color: Color(0xFF6B7280),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.perfilActual['correo']?.toString() ?? '',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF374151),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.lock_outline,
+                  color: Color(0xFF9CA3AF),
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 16,
+                color: Color(0xFF6B7280),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'El correo electrónico no puede ser modificado',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCambiarPasswordSection() {
     return Container(
       padding: EdgeInsets.all(20),
@@ -468,7 +540,11 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SuccessFeedbackWidget(
+      showSuccess: _showSuccessAnimation,
+      successMessage: 'Perfil actualizado\nexitosamente',
+      onComplete: _onSuccessComplete,
+      child: Scaffold(
       backgroundColor: Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
@@ -570,18 +646,14 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                               onChanged: _validarNombre,
                               errorText: _nombreError,
                             ),
-                            SizedBox(height: 20),
-                            _buildTextField(
-                              controller: _correoController,
-                              label: 'Correo Electrónico',
-                              hint: 'Ingresa tu correo electrónico',
-                              icon: Icons.email_outlined,
-                              onChanged: _validarCorreo,
-                              errorText: _correoError,
-                            ),
                           ],
                         ),
                       ),
+
+                      SizedBox(height: 20),
+
+                      // Sección de Correo (Solo lectura)
+                      _buildCorreoInfoSection(),
 
                       SizedBox(height: 20),
 
@@ -648,6 +720,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
           ],
         ),
       ),
+      )
     );
   }
 }
