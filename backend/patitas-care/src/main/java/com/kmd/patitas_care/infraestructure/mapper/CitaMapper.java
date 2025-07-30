@@ -26,7 +26,7 @@ public class CitaMapper {
                 .fechaHora(dto.getFechaHora())
                 .mascota(mascota)
                 .cliente(cliente)
-                .estado(EstadoCita.PENDIENTE) // puedes dejar esto fijo al agendar
+                .estado(EstadoCita.PENDIENTE)
                 .build();
     }
 }

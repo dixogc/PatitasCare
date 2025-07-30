@@ -26,7 +26,7 @@ public class CitaResponseDTO {
     @JsonDeserialize(using = CustomLocalDateTimeDeserializer.class)
     private LocalDateTime fechaHora;
 
-    @Schema(description = "Estado de la cita", example = "AGENDADA")
+    @Schema(description = "Estado de la cita", example = "PENDIENTE")
     private EstadoCita estado;
 
     @Schema(description = "Nombre del veterinario que atenderá la cita", example = "Juan Pérez")
