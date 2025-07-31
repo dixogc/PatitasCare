@@ -323,18 +323,63 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
   }
 
   Future<void> _llamarVeterinaria(String telefono) async {
-    try {
-      final Uri phoneUri = Uri(scheme: 'tel', path: telefono);
-      if (await canLaunchUrl(phoneUri)) {
-        await launchUrl(phoneUri);
-        context.showSuccessNotification('Abriendo aplicación de teléfono...');
-      } else {
-        context.showErrorNotification('No se puede realizar la llamada');
-      }
-    } catch (e) {
-      context.showErrorNotification('Error al intentar llamar');
+  try {
+    String numeroLimpio = telefono.replaceAll(RegExp(r'[^\d+]'), '');
+    
+    if (numeroLimpio.isEmpty) {
+      context.showErrorNotification('Número de teléfono inválido');
+      return;
     }
+    
+    // Probar diferentes esquemas
+    List<String> esquemas = ['tel:', 'telprompt:'];
+    bool llamadaExitosa = false;
+    
+    for (String esquema in esquemas) {
+      try {
+        final Uri phoneUri = Uri.parse('$esquema$numeroLimpio');
+        print('Probando con: $phoneUri');
+        
+        if (await canLaunchUrl(phoneUri)) {
+          await launchUrl(
+            phoneUri,
+            mode: LaunchMode.externalApplication,
+          );
+          context.showSuccessNotification('Abriendo aplicación de teléfono...');
+          llamadaExitosa = true;
+          break;
+        }
+      } catch (e) {
+        print('Error con esquema $esquema: $e');
+        continue;
+      }
+    }
+    
+    if (!llamadaExitosa) {
+      // Fallback: intentar abrir la app de teléfono directamente
+      await _intentarAbrirAppTelefono(numeroLimpio);
+    }
+    
+  } catch (e) {
+    print('Error general: $e');
+    context.showErrorNotification('Error al intentar llamar');
   }
+}
+
+Future<void> _intentarAbrirAppTelefono(String numero) async {
+  try {
+    // Intentar con intent específico de Android
+    final Uri dialerUri = Uri.parse('tel:$numero');
+    
+    if (await canLaunchUrl(dialerUri)) {
+      await launchUrl(dialerUri, mode: LaunchMode.externalApplication);
+    } else {
+      context.showErrorNotification('No hay aplicación de teléfono disponible en este dispositivo');
+    }
+  } catch (e) {
+    context.showErrorNotification('Tu dispositivo no puede hacer llamadas');
+  }
+}
 
   Future<void> _abrirDirecciones(double lat, double lng) async {
     try {

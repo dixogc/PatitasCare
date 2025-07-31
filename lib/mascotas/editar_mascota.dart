@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:patitas_care/auth_service.dart';
+import 'package:patitas_care/notification_helper.dart';
+import 'package:patitas_care/success_feedback_widget.dart';
 
 
 class EditPetPage extends StatefulWidget {
@@ -30,6 +32,7 @@ class _EditPetPageState extends State<EditPetPage> {
   DateTime? fechaNacimientoSeleccionada;
   bool? esterilizado;
   bool isLoading = false;
+  bool showSuccessAnimation = false; // Para controlar la animación de éxito
 
   final List<String> sexoOpciones = ['Hembra', 'Macho', 'Desconocido'];
   final Color purple = const Color(0xFF8F88F2);
@@ -66,7 +69,7 @@ class _EditPetPageState extends State<EditPetPage> {
           sexoSeleccionado = 'Hembra';
           break;
         case 'MACHO':
-          sexoSeleccionado = 'Masculino';
+          sexoSeleccionado = 'Macho'; // Corregido: era 'Masculino'
           break;
         case 'DESCONOCIDO':
           sexoSeleccionado = 'Desconocido';
@@ -119,7 +122,13 @@ class _EditPetPageState extends State<EditPetPage> {
   }
 
   Future<void> actualizarMascota() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      // Mostrar notificación de error de validación
+      context.showErrorNotification(
+        'Por favor, completa todos los campos obligatorios correctamente'
+      );
+      return;
+    }
 
     setState(() {
       isLoading = true;
@@ -128,8 +137,13 @@ class _EditPetPageState extends State<EditPetPage> {
     final token = await AuthService.getToken();
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Token no encontrado')),
+      context.showErrorNotification(
+        'Sesión expirada. Por favor, inicia sesión nuevamente',
+        actionLabel: 'Iniciar sesión',
+        onAction: () {
+          // Navegar a la pantalla de login
+          Navigator.pushReplacementNamed(context, '/login');
+        },
       );
       setState(() {
         isLoading = false;
@@ -184,135 +198,199 @@ class _EditPetPageState extends State<EditPetPage> {
         body: jsonEncode(requestBody),
       );
 
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mascota actualizada exitosamente')),
-        );
-        Navigator.pop(context);
-      } else {
-        throw Exception('Error al actualizar mascota');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
       setState(() {
         isLoading = false;
       });
+
+      if (response.statusCode == 200) {
+        // Mostrar animación de éxito
+        setState(() {
+          showSuccessAnimation = true;
+        });
+        
+        // También mostrar la notificación banner
+        context.showSuccessNotification(
+          'Mascota actualizada exitosamente',
+          actionLabel: 'Ver perfil',
+          onAction: () {
+            Navigator.pop(context, true); // Retornar con resultado exitoso
+          },
+        );
+      } else if (response.statusCode == 400) {
+        // Error de validación del servidor
+        context.showWarningNotification(
+          'Los datos proporcionados no son válidos. Verifica la información',
+          actionLabel: 'Revisar',
+        );
+      } else if (response.statusCode == 404) {
+        // Mascota no encontrada
+        context.showErrorNotification(
+          'No se encontró la mascota. Es posible que haya sido eliminada',
+          actionLabel: 'Volver',
+          onAction: () => Navigator.pop(context),
+        );
+      } else if (response.statusCode >= 500) {
+        // Error del servidor
+        context.showErrorNotification(
+          'Error del servidor. Intenta nuevamente en unos minutos',
+          actionLabel: 'Reintentar',
+          onAction: () => actualizarMascota(),
+        );
+      } else {
+        // Error genérico
+        context.showErrorNotification(
+          'Error inesperado. Verifica tu conexión e intenta nuevamente'
+        );
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      
+      // Determinar el tipo de error
+      if (e.toString().contains('SocketException') || 
+          e.toString().contains('TimeoutException')) {
+        context.showErrorNotification(
+          'Sin conexión a internet. Verifica tu conexión',
+          actionLabel: 'Reintentar',
+          onAction: () => actualizarMascota(),
+        );
+      } else {
+        context.showErrorNotification(
+          'Error inesperado: ${e.toString()}',
+          actionLabel: 'Reintentar',
+          onAction: () => actualizarMascota(),
+        );
+      }
     }
+  }
+
+  void _onSuccessAnimationComplete() {
+    setState(() {
+      showSuccessAnimation = false;
+    });
+    
+    // Esperar un poco más y luego navegar
+    Future.delayed(const Duration(milliseconds: 500), () {
+      Navigator.pop(context, true);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // Fondo decorativo
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: yellow.withOpacity(0.3),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(100),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                color: yellow.withOpacity(0.3),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(75),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back, size: 24),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text(
-                        'Editar Mascota',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
+    return SuccessFeedbackWidget(
+      showSuccess: showSuccessAnimation,
+      successMessage: '¡Actualizado!',
+      onComplete: _onSuccessAnimationComplete,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            // Fondo decorativo
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: yellow.withOpacity(0.3),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(100),
                   ),
                 ),
-                // Formulario
-                Expanded(
-                  child: Form(
-                    key: _formKey,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildTextField('Nombre *:', nombreController),
-                          const SizedBox(height: 20),
-                          _buildTextField('Especie *:', especieController),
-                          const SizedBox(height: 20),
-                          _buildTextField('Raza:', razaController),
-                          const SizedBox(height: 20),
-                          _buildDropdownField(),
-                          const SizedBox(height: 20),
-                          _buildTextField('Color:', colorController),
-                          const SizedBox(height: 20),
-                          _buildTextField('Edad:', edadController, TextInputType.number),
-                          const SizedBox(height: 20),
-                          _buildDateField(),
-                          const SizedBox(height: 20),
-                          _buildCheckboxField(),
-                          const SizedBox(height: 40),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: isLoading ? null : actualizarMascota,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
-                              ),
-                              child: isLoading
-                                  ? const CircularProgressIndicator(color: Colors.white)
-                                  : const Text('Actualizar Mascota'),
-                            ),
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  color: yellow.withOpacity(0.3),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(75),
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back, size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        const Text(
+                          'Editar Mascota',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Formulario
+                  Expanded(
+                    child: Form(
+                      key: _formKey,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildTextField('Nombre *:', nombreController, null, true),
+                            const SizedBox(height: 20),
+                            _buildTextField('Especie *:', especieController, null, true),
+                            const SizedBox(height: 20),
+                            _buildTextField('Raza:', razaController),
+                            const SizedBox(height: 20),
+                            _buildDropdownField(),
+                            const SizedBox(height: 20),
+                            _buildTextField('Color:', colorController),
+                            const SizedBox(height: 20),
+                            _buildTextField('Edad:', edadController, TextInputType.number),
+                            const SizedBox(height: 20),
+                            _buildDateField(),
+                            const SizedBox(height: 20),
+                            _buildCheckboxField(),
+                            const SizedBox(height: 40),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: isLoading ? null : actualizarMascota,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: purple,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                ),
+                                child: isLoading
+                                    ? const CircularProgressIndicator(color: Colors.white)
+                                    : const Text('Actualizar Mascota'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -333,16 +411,22 @@ class _EditPetPageState extends State<EditPetPage> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          validator: isRequired ? (value) {
-            if (value == null || value.isEmpty) {
+          validator: (value) {
+            if (isRequired && (value == null || value.isEmpty)) {
               return 'Este campo es obligatorio';
             }
-            return null;
-          } : (value) {
+            
             // Validar edad si se proporcionó
-            if (label.contains('Edad') && value != null && value.isNotEmpty && int.tryParse(value) == null) {
-              return 'La edad debe ser un número válido';
+            if (label.contains('Edad') && value != null && value.isNotEmpty) {
+              final edad = int.tryParse(value);
+              if (edad == null) {
+                return 'La edad debe ser un número válido';
+              }
+              if (edad < 0 || edad > 50) {
+                return 'La edad debe estar entre 0 y 50 años';
+              }
             }
+            
             return null;
           },
           decoration: InputDecoration(

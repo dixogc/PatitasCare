@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:patitas_care/editar_perfil_page.dart';
 import 'package:patitas_care/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'package:patitas_care/notification_helper.dart';
+import 'package:patitas_care/success_feedback_widget.dart';
 
 class AjustesPage extends StatefulWidget {
   const AjustesPage({super.key});
@@ -17,6 +20,7 @@ class AjustesPage extends StatefulWidget {
 class _AjustesPageState extends State<AjustesPage> {
   bool _notificacionesActivadas = true;
   bool _isLoading = false;
+  bool showSuccessAnimation = false;
   Map<String, dynamic>? _perfilUsuario;
 
   @override
@@ -27,10 +31,18 @@ class _AjustesPageState extends State<AjustesPage> {
   }
 
   Future<void> _cargarConfiguraciones() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _notificacionesActivadas = prefs.getBool('notificaciones_activadas') ?? true;
-    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _notificacionesActivadas = prefs.getBool('notificaciones_activadas') ?? true;
+      });
+    } catch (e) {
+      context.showErrorNotification(
+        'Error al cargar configuraciones',
+        actionLabel: 'Reintentar',
+        onAction: () => _cargarConfiguraciones(),
+      );
+    }
   }
 
   Future<void> _cargarPerfilUsuario() async {
@@ -41,7 +53,14 @@ class _AjustesPageState extends State<AjustesPage> {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
-        _mostrarSnackBar('Error de autenticación', Colors.red);
+        setState(() {
+          _isLoading = false;
+        });
+        context.showErrorNotification(
+          'Sesión expirada. Inicia sesión nuevamente',
+          actionLabel: 'Iniciar sesión',
+          onAction: () => Navigator.pushReplacementNamed(context, '/login'),
+        );
         return;
       }
 
@@ -53,40 +72,105 @@ class _AjustesPageState extends State<AjustesPage> {
         },
       );
 
+      setState(() {
+        _isLoading = false;
+      });
+
       if (response.statusCode == 200) {
         final perfilData = json.decode(response.body);
         setState(() {
           _perfilUsuario = perfilData;
         });
+        
+        context.showSuccessNotification(
+          'Perfil cargado correctamente'
+        );
+        
+      } else if (response.statusCode == 401) {
+        context.showErrorNotification(
+          'Tu sesión ha expirado. Inicia sesión nuevamente',
+          actionLabel: 'Iniciar sesión',
+          onAction: () => Navigator.pushReplacementNamed(context, '/login'),
+        );
+      } else if (response.statusCode == 404) {
+        context.showWarningNotification(
+          'No se encontró la información del perfil',
+          actionLabel: 'Reintentar',
+          onAction: () => _cargarPerfilUsuario(),
+        );
+      } else if (response.statusCode >= 500) {
+        context.showErrorNotification(
+          'Error del servidor. Intenta nuevamente en unos minutos',
+          actionLabel: 'Reintentar',
+          onAction: () => _cargarPerfilUsuario(),
+        );
       } else {
-        _mostrarSnackBar('Error al cargar el perfil', Colors.red);
+        context.showErrorNotification(
+          'Error inesperado al cargar el perfil',
+          actionLabel: 'Reintentar',
+          onAction: () => _cargarPerfilUsuario(),
+        );
       }
     } catch (e) {
-      print('Error al cargar perfil: $e');
-      _mostrarSnackBar('Error de conexión', Colors.red);
-    } finally {
       setState(() {
         _isLoading = false;
       });
+      
+      if (e.toString().contains('SocketException') || 
+          e.toString().contains('TimeoutException')) {
+        context.showErrorNotification(
+          'Sin conexión a internet. Verifica tu conexión',
+          actionLabel: 'Reintentar',
+          onAction: () => _cargarPerfilUsuario(),
+        );
+      } else {
+        context.showErrorNotification(
+          'Error inesperado al cargar el perfil',
+          actionLabel: 'Reintentar',
+          onAction: () => _cargarPerfilUsuario(),
+        );
+      }
     }
   }
 
   Future<void> _toggleNotificaciones(bool valor) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('notificaciones_activadas', valor);
-    setState(() {
-      _notificacionesActivadas = valor;
-    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('notificaciones_activadas', valor);
+      setState(() {
+        _notificacionesActivadas = valor;
+      });
 
-    _mostrarSnackBar(
-      valor ? 'Notificaciones activadas' : 'Notificaciones desactivadas',
-      valor ? Colors.green : Colors.orange,
-    );
+      if (valor) {
+        context.showSuccessNotification(
+          'Notificaciones activadas correctamente'
+        );
+      } else {
+        context.showInfoNotification(
+          'Notificaciones desactivadas. Puedes activarlas cuando quieras'
+        );
+      }
+    } catch (e) {
+      // Revertir el cambio si hubo error
+      setState(() {
+        _notificacionesActivadas = !valor;
+      });
+      
+      context.showErrorNotification(
+        'Error al guardar la configuración',
+        actionLabel: 'Reintentar',
+        onAction: () => _toggleNotificaciones(valor),
+      );
+    }
   }
 
   Future<void> _abrirEditarPerfil() async {
     if (_perfilUsuario == null) {
-      _mostrarSnackBar('Cargando datos del perfil...', Colors.orange);
+      context.showWarningNotification(
+        'Espera a que se carguen los datos del perfil',
+        actionLabel: 'Cargar',
+        onAction: () => _cargarPerfilUsuario(),
+      );
       return;
     }
 
@@ -100,20 +184,27 @@ class _AjustesPageState extends State<AjustesPage> {
         ),
       );
 
-      // Si se actualizó el perfil, recargar los datos
       if (resultado != null) {
         setState(() {
           _perfilUsuario = resultado;
+          showSuccessAnimation = true;
         });
+        
+        context.showSuccessNotification(
+          'Perfil actualizado exitosamente'
+        );
       }
     } catch (e) {
-      print('Error al abrir editar perfil: $e');
-      _mostrarSnackBar('Error al abrir la página de edición', Colors.red);
+      context.showErrorNotification(
+        'Error al abrir la página de edición del perfil',
+        actionLabel: 'Reintentar',
+        onAction: () => _abrirEditarPerfil(),
+      );
     }
   }
 
   Future<void> _abrirFormularioFeedback() async {
-    const String urlFormulario = 'https://forms.gle/p1Ubf8Zjumvm4Wbu7'; // Reemplazar con la URL real
+    const String urlFormulario = 'https://forms.gle/p1Ubf8Zjumvm4Wbu7';
     
     try {
       final Uri url = Uri.parse(urlFormulario);
@@ -122,12 +213,29 @@ class _AjustesPageState extends State<AjustesPage> {
           url,
           mode: LaunchMode.externalApplication,
         );
+        
+        context.showSuccessNotification(
+          'Formulario abierto. ¡Gracias por tu feedback!'
+        );
       } else {
-        _mostrarSnackBar('No se pulo abrir el formulario', Colors.red);
+        context.showErrorNotification(
+          'No se puede abrir el formulario de feedback',
+          actionLabel: 'Copiar enlace',
+          onAction: () {
+            Clipboard.setData(ClipboardData(text: urlFormulario));
+            context.showInfoNotification('Enlace copiado al portapapeles');
+          },
+        );
       }
     } catch (e) {
-      print('Error al abrir URL: $e');
-      _mostrarSnackBar('Error al abrir el formulario', Colors.red);
+      context.showErrorNotification(
+        'Error al abrir el formulario de feedback',
+        actionLabel: 'Copiar enlace',
+        onAction: () {
+          Clipboard.setData(ClipboardData(text: urlFormulario));
+          context.showInfoNotification('Enlace copiado al portapapeles');
+        },
+      );
     }
   }
 
@@ -159,7 +267,7 @@ class _AjustesPageState extends State<AjustesPage> {
             ],
           ),
           content: Text(
-            '¿Estás seguro de que quieres cerrar sesión?',
+            '¿Estás seguro de que quieres cerrar sesión? Tendrás que iniciar sesión nuevamente para acceder a la aplicación.',
             style: TextStyle(
               color: Color(0xFF6B7280),
               fontSize: 16,
@@ -203,32 +311,61 @@ class _AjustesPageState extends State<AjustesPage> {
 
   Future<void> _cerrarSesion() async {
     try {
+      // Mostrar indicador de carga
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Cerrando sesión...'),
+              ],
+            ),
+          ),
+        ),
+      );
+
       await AuthService.logout();
+      
+      // Cerrar el diálogo de carga
+      Navigator.of(context).pop();
       
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => LoginPage()), 
         (Route<dynamic> route) => false,
       );
       
-      _mostrarSnackBar('Sesión cerrada exitosamente', Colors.green);
+      context.showSuccessNotification(
+        'Sesión cerrada exitosamente. ¡Hasta pronto!'
+      );
+      
     } catch (e) {
-      print('Error al cerrar sesión: $e');
-      _mostrarSnackBar('Error al cerrar sesión', Colors.red);
+      // Cerrar el diálogo de carga si existe
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+      
+      context.showErrorNotification(
+        'Error al cerrar sesión. Intenta nuevamente',
+        actionLabel: 'Reintentar',
+        onAction: () => _cerrarSesion(),
+      );
     }
   }
 
-  void _mostrarSnackBar(String mensaje, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: color,
-        duration: Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
+  void _onSuccessAnimationComplete() {
+    setState(() {
+      showSuccessAnimation = false;
+    });
   }
 
   Widget _buildSeccionHeader(String titulo, IconData icono) {
@@ -434,61 +571,63 @@ class _AjustesPageState extends State<AjustesPage> {
     }
 
     if (_perfilUsuario == null) {
-      return Container(
-        padding: EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: Color(0xFFEF4444).withOpacity(0.1),
-              child: Icon(
-                Icons.error_outline,
-                color: Color(0xFFEF4444),
-                size: 30,
+      return GestureDetector(
+        onTap: _cargarPerfilUsuario,
+        child: Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Color(0xFFEF4444).withOpacity(0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Error al cargar datos',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFEF4444),
-                    ),
-                  ),
-                  Text(
-                    'Toca para reintentar',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
+            ],
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Color(0xFFEF4444).withOpacity(0.1),
+                child: Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFEF4444),
+                  size: 30,
+                ),
               ),
-            ),
-            IconButton(
-              onPressed: _cargarPerfilUsuario,
-              icon: Icon(
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Error al cargar datos',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFEF4444),
+                      ),
+                    ),
+                    Text(
+                      'Toca para reintentar cargar tu perfil',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
                 Icons.refresh,
                 color: Color(0xFF8B5CF6),
+                size: 24,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -519,7 +658,7 @@ class _AjustesPageState extends State<AjustesPage> {
             radius: 30,
             backgroundColor: Color(0xFF8B5CF6),
             child: Text(
-              iniciales,
+              iniciales.isNotEmpty ? iniciales : 'U',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -551,6 +690,15 @@ class _AjustesPageState extends State<AjustesPage> {
               ],
             ),
           ),
+          // Indicador de perfil cargado
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.green,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
         ],
       ),
     );
@@ -558,111 +706,138 @@ class _AjustesPageState extends State<AjustesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              color: Colors.transparent,
-              child: Row(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: Color(0xFF1F2937),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Text(
-                      'Ajustes',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2937),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Contenido
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return SuccessFeedbackWidget(
+      showSuccess: showSuccessAnimation,
+      successMessage: '¡Perfil actualizado!',
+      onComplete: _onSuccessAnimationComplete,
+      child: Scaffold(
+        backgroundColor: Color(0xFFF8FAFC),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Header mejorado
+              Container(
+                padding: const EdgeInsets.all(20),
+                color: Colors.transparent,
+                child: Row(
                   children: [
-                    // Sección de Notificaciones
-                    _buildSeccionHeader('Notificaciones', Icons.notifications),
-                    _buildOpcionSwitch(
-                      titulo: 'Recordatorios',
-                      subtitulo: 'Recibe notificaciones de citas y cuidados',
-                      valor: _notificacionesActivadas,
-                      onChanged: _toggleNotificaciones,
-                      icono: Icons.notifications_active,
-                    ),
-
-                    // Sección de Cuenta
-                    _buildSeccionHeader('Cuenta', Icons.account_circle),
-                    _buildInfoUsuario(),
-                    SizedBox(height: 12),
-                    _buildOpcionBoton(
-                      titulo: 'Editar datos',
-                      subtitulo: 'Modificar información personal',
-                      onTap: _abrirEditarPerfil,
-                      icono: Icons.edit,
-                    ),
-                    SizedBox(height: 12),
-                    _buildOpcionBoton(
-                      titulo: 'Cerrar sesión',
-                      subtitulo: 'Salir de tu cuenta',
-                      onTap: _mostrarDialogoCerrarSesion,
-                      icono: Icons.logout,
-                      colorIcono: Color(0xFFEF4444),
-                      colorTexto: Color(0xFFEF4444),
-                    ),
-
-                    // Sección de Soporte
-                    _buildSeccionHeader('Soporte', Icons.support_agent),
-                    _buildOpcionBoton(
-                      titulo: 'Enviar feedback',
-                      subtitulo: 'Comparte tu opinión y sugerencias',
-                      onTap: _abrirFormularioFeedback,
-                      icono: Icons.feedback,
-                      trailing: Icon(
-                        Icons.open_in_new,
-                        color: Color(0xFF9CA3AF),
-                        size: 16,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: Color(0xFF1F2937),
+                        ),
                       ),
                     ),
-
-                    SizedBox(height: 40),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        'Ajustes',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+                    ),
+                    // Botón de refresh para recargar perfil
+                    if (_perfilUsuario != null)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          onPressed: _cargarPerfilUsuario,
+                          icon: const Icon(
+                            Icons.refresh,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // Contenido
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Sección de Notificaciones
+                      _buildSeccionHeader('Notificaciones', Icons.notifications),
+                      _buildOpcionSwitch(
+                        titulo: 'Recordatorios',
+                        subtitulo: 'Recibe notificaciones de citas y cuidados',
+                        valor: _notificacionesActivadas,
+                        onChanged: _toggleNotificaciones,
+                        icono: Icons.notifications_active,
+                      ),
+
+                      // Sección de Cuenta
+                      _buildSeccionHeader('Cuenta', Icons.account_circle),
+                      _buildInfoUsuario(),
+                      SizedBox(height: 12),
+                      _buildOpcionBoton(
+                        titulo: 'Editar datos',
+                        subtitulo: 'Modificar información personal',
+                        onTap: _abrirEditarPerfil,
+                        icono: Icons.edit,
+                      ),
+                      SizedBox(height: 12),
+                      _buildOpcionBoton(
+                        titulo: 'Cerrar sesión',
+                        subtitulo: 'Salir de tu cuenta',
+                        onTap: _mostrarDialogoCerrarSesion,
+                        icono: Icons.logout,
+                        colorIcono: Color(0xFFEF4444),
+                        colorTexto: Color(0xFFEF4444),
+                      ),
+
+                      // Sección de Soporte
+                      _buildSeccionHeader('Soporte', Icons.support_agent),
+                      _buildOpcionBoton(
+                        titulo: 'Enviar feedback',
+                        subtitulo: 'Comparte tu opinión y sugerencias',
+                        onTap: _abrirFormularioFeedback,
+                        icono: Icons.feedback,
+                        trailing: Icon(
+                          Icons.open_in_new,
+                          color: Color(0xFF9CA3AF),
+                          size: 16,
+                        ),
+                      ),
+
+                      SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
