@@ -139,7 +139,16 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => {
+                    if (Navigator.canPop(context)) {
+                        Navigator.pop(context)
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LoginPage()),
+                          )
+                        }
+                    },
                 ),
 
                 const SizedBox(height: 20),

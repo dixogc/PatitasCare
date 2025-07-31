@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:patitas_care/auth_service.dart';
 import 'package:patitas_care/historialMedico/historial_medico_list_page.dart';
 import 'package:patitas_care/inicio_page.dart';
+import 'package:patitas_care/login_page.dart';
 import 'package:patitas_care/mascotas/registro_mascota.dart';
 import 'package:patitas_care/notification_helper.dart';
 
@@ -36,7 +37,9 @@ class _HistorialMascotaSelectionPageState extends State<HistorialMascotaSelectio
       context.showErrorNotification(
         'Sesión expirada. Por favor inicia sesión nuevamente.',
         actionLabel: 'Ir a login',
-        onAction: () => Navigator.pushReplacementNamed(context, '/auth/login'),
+        onAction: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),),
       );
       return;
     }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:patitas_care/auth_service.dart';
+import 'package:patitas_care/login_page.dart';
 import 'package:patitas_care/notification_helper.dart';
 import 'package:patitas_care/success_feedback_widget.dart';
 
@@ -141,8 +142,9 @@ class _EditPetPageState extends State<EditPetPage> {
         'Sesión expirada. Por favor, inicia sesión nuevamente',
         actionLabel: 'Iniciar sesión',
         onAction: () {
-          // Navegar a la pantalla de login
-          Navigator.pushReplacementNamed(context, '/login');
+          Navigator.pushReplacement(context, 
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
         },
       );
       setState(() {

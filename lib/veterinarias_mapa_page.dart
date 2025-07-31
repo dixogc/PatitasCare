@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:patitas_care/inicio_page.dart';
+import 'package:patitas_care/login_page.dart';
 import 'package:patitas_care/notification_helper.dart';
 import 'package:patitas_care/success_feedback_widget.dart';
 import 'dart:convert';
@@ -187,10 +188,10 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
           context.showErrorNotification(
             'Sesión expirada',
             actionLabel: 'Iniciar sesión',
-            onAction: () {
-              // Navegar a login
-              Navigator.pushReplacementNamed(context, '/login');
-            },
+            onAction: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+            )
           );
         }
         return;
@@ -289,7 +290,9 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
         actionLabel = 'Iniciar sesión';
         onAction = () {
           AuthService.removeToken();
-          Navigator.pushReplacementNamed(context, '/login');
+          Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
         };
         break;
       case 403:

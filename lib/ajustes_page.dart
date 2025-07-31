@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:patitas_care/editar_perfil_page.dart';
 import 'package:patitas_care/login_page.dart';
+import 'package:patitas_care/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
@@ -59,7 +60,10 @@ class _AjustesPageState extends State<AjustesPage> {
         context.showErrorNotification(
           'Sesión expirada. Inicia sesión nuevamente',
           actionLabel: 'Iniciar sesión',
-          onAction: () => Navigator.pushReplacementNamed(context, '/login'),
+          onAction: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          )
         );
         return;
       }
@@ -311,54 +315,33 @@ class _AjustesPageState extends State<AjustesPage> {
 
   Future<void> _cerrarSesion() async {
     try {
-      // Mostrar indicador de carga
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Center(
-          child: Container(
-            padding: EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Cerrando sesión...'),
-              ],
-            ),
-          ),
-        ),
-      );
-
+      // Ejecutar el logout directamente
       await AuthService.logout();
       
-      // Cerrar el diálogo de carga
-      Navigator.of(context).pop();
-      
+      // Navegar a la pantalla de login y limpiar toda la pila de navegación
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => LoginPage()), 
+        MaterialPageRoute(builder: (context) => WelcomeScreen()), 
         (Route<dynamic> route) => false,
       );
       
-      context.showSuccessNotification(
-        'Sesión cerrada exitosamente. ¡Hasta pronto!'
-      );
+      // Mostrar mensaje de éxito después de la navegación
+      Future.delayed(Duration(milliseconds: 200), () {
+        if (mounted) {
+          context.showSuccessNotification(
+            'Sesión cerrada exitosamente. ¡Hasta pronto!'
+          );
+        }
+      });
       
     } catch (e) {
-      // Cerrar el diálogo de carga si existe
-      if (Navigator.canPop(context)) {
-        Navigator.of(context).pop();
+      // Solo mostrar error si algo sale mal
+      if (mounted) {
+        context.showErrorNotification(
+          'Error al cerrar sesión. Intenta nuevamente',
+          actionLabel: 'Reintentar',
+          onAction: () => _cerrarSesion(),
+        );
       }
-      
-      context.showErrorNotification(
-        'Error al cerrar sesión. Intenta nuevamente',
-        actionLabel: 'Reintentar',
-        onAction: () => _cerrarSesion(),
-      );
     }
   }
 
