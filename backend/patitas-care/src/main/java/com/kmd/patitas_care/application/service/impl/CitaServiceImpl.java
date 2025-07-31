@@ -29,11 +29,6 @@ public class CitaServiceImpl implements CitaService {
 
     @Override
     public CitaResponseDTO agendarCita(CitaRequestDTO dto, String clienteId) {
-        // Validar que la fecha no sea en el pasado
-        if (dto.getFechaHora().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("No se puede agendar una cita en el pasado");
-        }
-
         Mascota mascota = mascotaRepository.findById(dto.getMascotaId())
                 .orElseThrow(() -> new RuntimeException("Mascota no encontrada"));
 
@@ -95,11 +90,6 @@ public class CitaServiceImpl implements CitaService {
         // No permitir modificar citas canceladas
         if (cita.getEstado() == EstadoCita.CANCELADA) {
             throw new RuntimeException("No se puede modificar una cita cancelada");
-        }
-
-        // Validaciones
-        if (dto.getFechaHora() != null && dto.getFechaHora().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("No se puede programar una cita en el pasado");
         }
 
         // Actualizar campos si se proporcionan
