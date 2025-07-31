@@ -592,7 +592,7 @@ class _VeterinariasMapaPageState extends State<VeterinariasMapaPage> {
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.patitas_care',
+          userAgentPackageName: 'com.patitas_care',
         ),
         MarkerLayer(
           markers: [

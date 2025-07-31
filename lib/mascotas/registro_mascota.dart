@@ -46,7 +46,23 @@ class _RegistroMascotaState extends State<RegistroMascotaPage> {
       initialDate: DateTime.now().subtract(const Duration(days: 365)), // 1 año atrás por defecto
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
-      locale: const Locale('es', 'ES'),
+      builder: (context, child) {
+        return Localizations.override(
+          context: context,
+          locale: const Locale('en', 'US'), // Forzamos inglés para evitar problemas
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(
+                primary: Color(0xFFB6A9F8), // Usando el color de tu app
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black87,
+              ),
+            ),
+            child: child!,
+          ),
+        );
+      },
     );
     
     if (fechaSeleccionada != null) {

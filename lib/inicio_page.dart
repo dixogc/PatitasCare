@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:patitas_care/ajustes_page.dart';
-import 'package:patitas_care/calendario.dart';
 import 'package:patitas_care/historialMedico/historial_mascota_selection_page.dart';
 import 'package:patitas_care/mascotas/lista_de_mascotas.dart';
 import 'package:patitas_care/veterinarias_mapa_page.dart';
+import 'citas_page.dart';
 
 class InicioPage extends StatelessWidget {
   const InicioPage({super.key});
@@ -146,7 +146,7 @@ class HomePage extends StatelessWidget {
                     () => Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const NotificacionCalendarPage(),
+                        builder: (context) => const CitasPage(),
                       ),
                     ),
                   ),

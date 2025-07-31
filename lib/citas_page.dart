@@ -1,31 +1,24 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
+import 'package:patitas_care/auth_service.dart';
 import 'package:patitas_care/inicio_page.dart';
 import 'package:patitas_care/notification_helper.dart';
 import 'package:patitas_care/success_feedback_widget.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
-import 'auth_service.dart';
-import 'dart:io';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'notification_service.dart';
 
-class NotificacionCalendarPage extends StatefulWidget {
-  const NotificacionCalendarPage({super.key});
+
+class CitasPage extends StatefulWidget {
+  const CitasPage({super.key});
 
   @override
-  State<NotificacionCalendarPage> createState() =>
-      _NotificacionCalendarPageState();
+  State<CitasPage> createState() => _CitasPageState();
 }
 
-class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
-  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+class _CitasPageState extends State<CitasPage> {
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
   final TextEditingController _motivoController = TextEditingController();
@@ -34,416 +27,32 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
   List<Map<String, dynamic>> _citas = [];
   bool _isLoading = false;
   bool _isLoadingCitas = false;
-  bool _permisosVerificados = false;
   int _selectedTabIndex = 0;
   
   // Variables para el feedback de éxito
   bool _showSuccessFeedback = false;
   String _successMessage = '';
 
+  // Variables para filtros
+  String _filtroEstado = 'TODAS';
+  final List<String> _estadosDisponibles = ['TODAS', 'PENDIENTE', 'COMPLETADA', 'CANCELADA'];
+
+  // Variables para edición
+  bool _isEditMode = false;
+  String? _editingCitaId;
+  Map<String, dynamic>? _citaEditando;
+
   @override
   void initState() {
     super.initState();
-    tz.initializeTimeZones();
-    tz.setLocalLocation(tz.local);
     _inicializar(); 
   }
 
   void _inicializar() async {
-    await inicializarNotificaciones();
-    await _verificarYSolicitarPermisos();
+    await NotificationService.initialize();
+    await NotificationService.verificarYSolicitarPermisos(context);
     await _cargarMascotas();
     await _cargarCitas();
-  }
-
-  Future<void> inicializarNotificaciones() async {
-    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-
-    try {
-      await flutterLocalNotificationsPlugin.initialize(
-        initializationSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {
-          print('Notificación tocada: ${response.payload}');
-        },
-      );
-
-      // Crear canales de notificación para Android
-      if (Platform.isAndroid) {
-        await _crearCanalesNotificacion();
-      }
-    } catch (e) {
-      print('Error al inicializar notificaciones: $e');
-      context.showErrorNotification(
-        'Error al configurar las notificaciones',
-        actionLabel: 'Reintentar',
-        onAction: () => inicializarNotificaciones(),
-      );
-    }
-  }
-
-  Future<void> _crearCanalesNotificacion() async {
-    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-
-    if (androidImplementation != null) {
-      // Canal para notificaciones 1 hora antes
-      const AndroidNotificationChannel canalAntes = AndroidNotificationChannel(
-        'recordatorios_citas_antes',
-        'Recordatorios de Citas (1 hora antes)',
-        description: 'Notificaciones de recordatorio de citas veterinarias 1 hora antes',
-        importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
-
-      // Canal para notificaciones a la hora exacta
-      const AndroidNotificationChannel canalExacta = AndroidNotificationChannel(
-        'recordatorios_citas_exacta',
-        'Recordatorios de Citas (Hora exacta)',
-        description: 'Notificaciones de recordatorio de citas veterinarias a la hora exacta',
-        importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
-
-      await androidImplementation.createNotificationChannel(canalAntes);
-      await androidImplementation.createNotificationChannel(canalExacta);
-    }
-  }
-
-  Future<void> _verificarYSolicitarPermisos() async {
-    if (_permisosVerificados) return;
-
-    if (Platform.isAndroid) {
-      // 1. Primero verificar permisos básicos de notificación
-      await _solicitarPermisoNotificacionesBasicas();
-      
-      // 2. Luego verificar y solicitar permiso de alarmas exactas
-      await _manejarPermisoAlarmasExactas();
-    }
-    
-    _permisosVerificados = true;
-  }
-
-  Future<void> _solicitarPermisoNotificacionesBasicas() async {
-    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-
-    if (androidImplementation != null) {
-      final bool? granted = await androidImplementation.requestNotificationsPermission();
-      
-      if (granted != true) {
-        context.showWarningNotification(
-          'Permisos de notificación requeridos para recordatorios',
-          actionLabel: 'Configurar',
-          onAction: () => _solicitarPermisoNotificacionesBasicas(),
-        );
-      } else {
-        context.showSuccessNotification('Permisos de notificación concedidos');
-      }
-    }
-  }
-
-  Future<void> _manejarPermisoAlarmasExactas() async {
-    try {
-      final deviceInfo = DeviceInfoPlugin();
-      final androidInfo = await deviceInfo.androidInfo;
-      final int sdkInt = androidInfo.version.sdkInt;
-
-      // Android 12 (API 31) y superior necesitan este permiso
-      if (sdkInt < 31) {
-        return; // No se necesita en versiones anteriores
-      }
-
-      // Verificar si ya tenemos el permiso
-      final status = await Permission.scheduleExactAlarm.status;
-      
-      if (status != PermissionStatus.granted) {
-        // Mostrar diálogo explicativo
-        final bool? shouldRequest = await _mostrarDialogoPermisoAlarmas();
-        
-        if (shouldRequest == true) {
-          // Intentar solicitar el permiso
-          final result = await Permission.scheduleExactAlarm.request();
-          
-          if (result != PermissionStatus.granted) {
-            // Si no se concedió, abrir configuración manual
-            await _abrirConfiguracionAlarmasManual();
-          } else {
-            context.showSuccessNotification('Permiso de alarmas concedido correctamente');
-          }
-        }
-      }
-    } catch (e) {
-      print('Error al manejar permiso de alarmas: $e');
-      context.showErrorNotification(
-        'Error al gestionar permisos de alarmas',
-        actionLabel: 'Configurar manualmente',
-        onAction: () => _abrirConfiguracionAlarmasManual(),
-      );
-    }
-  }
-
-  Future<bool?> _mostrarDialogoPermisoAlarmas() async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.alarm, color: Color(0xFF8B5CF6)),
-              SizedBox(width: 8),
-              Expanded(child: Text('Permiso Especial Requerido')),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Para enviar recordatorios precisos de citas, necesitamos el permiso especial "Alarmas y recordatorios".',
-                style: TextStyle(fontSize: 16),
-              ),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Esto permitirá:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[800],
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text('• Recordatorios 1 hora antes', style: TextStyle(fontSize: 14)),
-                    Text('• Notificación a la hora exacta', style: TextStyle(fontSize: 14)),
-                    Text('• Funcionamiento en segundo plano', style: TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: Text('Más tarde'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF8B5CF6),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              child: Text('Conceder Permiso'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _abrirConfiguracionAlarmasManual() async {
-    try {
-      // Mostrar diálogo con instrucciones
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Configuración Manual'),
-          content: Text(
-            'Sigue estos pasos:\n\n'
-            '1. Se abrirá la configuración\n'
-            '2. Busca "Patitas Care" en la lista\n'
-            '3. Activa "Permitir alarmas y recordatorios"\n'
-            '4. Regresa a la app',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _abrirConfiguracion();
-              },
-              child: Text('Abrir Configuración'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      print('Error: $e');
-      context.showErrorNotification('No se pudo abrir la configuración');
-    }
-  }
-
-  Future<void> _abrirConfiguracion() async {
-    try {
-      // Intentar abrir configuración específica de alarmas
-      await Permission.scheduleExactAlarm.request();
-      
-      // Fallback: abrir configuración de la app
-      final Uri uri = Uri.parse('app-settings:');
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      }
-    } catch (e) {
-      print('Error al abrir configuración: $e');
-      context.showErrorNotification('Error al abrir la configuración del sistema');
-    }
-  }
-
-  Future<void> _programarNotificacion(String titulo, String cuerpo, DateTime fechaCita) async {
-    try {
-      // Verificar permisos antes de programar
-      final status = await Permission.scheduleExactAlarm.status;
-      if (status != PermissionStatus.granted && Platform.isAndroid) {
-        final deviceInfo = DeviceInfoPlugin();
-        final androidInfo = await deviceInfo.androidInfo;
-        if (androidInfo.version.sdkInt >= 31) {
-          context.showWarningNotification(
-            'Se necesita permiso de alarmas exactas',
-            actionLabel: 'Configurar',
-            onAction: () => _manejarPermisoAlarmasExactas(),
-          );
-          return;
-        }
-      }
-
-      // Generar IDs únicos
-      final int baseId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final String payload = jsonEncode({
-        'tipo': 'cita',
-        'mascota_id': _selectedMascotaId,
-        'fecha': fechaCita.toIso8601String(),
-      });
-
-      int notificacionesProgramadas = 0;
-
-      // Notificación 1 hora antes
-      final DateTime notificacionAntes = fechaCita.subtract(Duration(hours: 1));
-      if (notificacionAntes.isAfter(DateTime.now())) {
-        final tz.TZDateTime fechaNotificacionAntes = tz.TZDateTime.from(
-          notificacionAntes,
-          tz.local,
-        );
-
-        const AndroidNotificationDetails androidDetailsAntes = AndroidNotificationDetails(
-          'recordatorios_citas_antes',
-          'Recordatorios de Citas (1 hora antes)',
-          channelDescription: 'Notificaciones de recordatorio de citas veterinarias 1 hora antes',
-          importance: Importance.high,
-          priority: Priority.high,
-          showWhen: true,
-          icon: '@mipmap/ic_launcher',
-          playSound: true,
-          enableVibration: true,
-          fullScreenIntent: false,
-          category: AndroidNotificationCategory.reminder,
-        );
-
-        const NotificationDetails notificationDetailsAntes = NotificationDetails(
-          android: androidDetailsAntes,
-        );
-
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          baseId,
-          '⏰ Cita en 1 hora - $titulo',
-          cuerpo,
-          fechaNotificacionAntes,
-          notificationDetailsAntes,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-          payload: payload,
-        );
-        notificacionesProgramadas++;
-      }
-
-      // Notificación a la hora exacta
-      final tz.TZDateTime fechaProgramada = tz.TZDateTime.from(fechaCita, tz.local);
-
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'recordatorios_citas_exacta',
-        'Recordatorios de Citas (Hora exacta)',
-        channelDescription: 'Notificaciones de recordatorio de citas veterinarias a la hora exacta',
-        importance: Importance.high,
-        priority: Priority.high,
-        showWhen: true,
-        icon: '@mipmap/ic_launcher',
-        playSound: true,
-        enableVibration: true,
-        fullScreenIntent: false,
-        category: AndroidNotificationCategory.reminder,
-      );
-
-      const NotificationDetails notificationDetails = NotificationDetails(
-        android: androidDetails,
-      );
-
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        baseId + 1,
-        '🐾 ¡Es hora de tu cita!',
-        '$titulo - $cuerpo',
-        fechaProgramada,
-        notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        payload: payload,
-      );
-      notificacionesProgramadas++;
-
-      // Mostrar mensaje de éxito personalizado
-      final String mensajeExito = notificacionesProgramadas == 2 
-          ? 'Recordatorios programados: 1 hora antes y a la hora exacta'
-          : 'Recordatorio programado correctamente';
-      
-      context.showSuccessNotification(mensajeExito);
-      
-    } catch (e) {
-      print('Error al programar notificación: $e');
-      context.showErrorNotification(
-        'Error al programar los recordatorios',
-        actionLabel: 'Reintentar',
-        onAction: () => _programarNotificacion(titulo, cuerpo, fechaCita),
-      );
-    }
   }
 
   Future<void> _cargarMascotas() async {
@@ -505,8 +114,9 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
         return;
       }
 
+      // Usar el endpoint que incluye citas canceladas para tener todos los datos
       final response = await http.get(
-        Uri.parse('https://patitas-care.onrender.com/citas/mis-citas'),
+        Uri.parse('https://patitas-care.onrender.com/citas/mis-citas/todas'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -602,11 +212,20 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
           _successMessage = '¡Cita agendada!';
         });
         
-        await _programarNotificacion(
-          'Recordatorio: Cita de $mascotaNombre',
-          'Motivo: ${citaResponse['motivo']}',
-          fechaCita,
+        // Programar notificaciones
+        final bool notificacionProgramada = await NotificationService.programarNotificacionCita(
+          citaId: citaResponse['id'],
+          titulo: 'Recordatorio: Cita de $mascotaNombre',
+          cuerpo: 'Motivo: ${citaResponse['motivo']}',
+          fechaCita: fechaCita,
+          mascotaId: _selectedMascotaId,
         );
+
+        if (notificacionProgramada) {
+          context.showSuccessNotification('Recordatorios programados correctamente');
+        } else {
+          context.showWarningNotification('Cita agendada, pero no se pudieron programar los recordatorios');
+        }
         
         _limpiarCampos();
         await _cargarCitas(); // Recargar la lista de citas
@@ -649,6 +268,277 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _actualizarCita() async {
+    if (_editingCitaId == null || _citaEditando == null) return;
+
+    final String motivo = _motivoController.text.trim();
+
+    if (motivo.isEmpty || _selectedMascotaId == null) {
+      context.showWarningNotification('Por favor completa todos los campos requeridos');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final String? token = await AuthService.getToken();
+
+      if (token == null) {
+        context.showErrorNotification('Error de autenticación. Inicia sesión nuevamente');
+        return;
+      }
+
+      final DateTime fechaCita = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
+      if (fechaCita.isBefore(DateTime.now())) {
+        context.showWarningNotification('La fecha y hora debe ser futura');
+        return;
+      }
+
+      final String fechaFormateada = DateFormat("yyyy-MM-dd'T'HH:mm").format(fechaCita);
+
+      final Map<String, dynamic> citaData = {
+        'mascotaId': _selectedMascotaId,
+        'fechaHora': fechaFormateada,
+        'motivo': motivo,
+      };
+
+      final response = await http.put(
+        Uri.parse('https://patitas-care.onrender.com/citas/$_editingCitaId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(citaData),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> citaResponse = json.decode(response.body);
+        final mascotaNombre = _mascotas.firstWhere((m) => m['id'] == _selectedMascotaId)['nombre'];
+        
+        // Mostrar feedback de éxito
+        setState(() {
+          _showSuccessFeedback = true;
+          _successMessage = '¡Cita actualizada!';
+        });
+        
+        // Actualizar notificaciones
+        final bool notificacionActualizada = await NotificationService.actualizarNotificacionesCita(
+          citaId: _editingCitaId!,
+          titulo: 'Recordatorio: Cita de $mascotaNombre',
+          cuerpo: 'Motivo: ${citaResponse['motivo']}',
+          fechaCita: fechaCita,
+          mascotaId: _selectedMascotaId,
+        );
+
+        if (notificacionActualizada) {
+          context.showSuccessNotification('Cita y recordatorios actualizados');
+        } else {
+          context.showWarningNotification('Cita actualizada, pero no se pudieron actualizar los recordatorios');
+        }
+        
+        _cancelarEdicion();
+        await _cargarCitas(); // Recargar la lista de citas
+        
+        // Cambiar a la pestaña de citas
+        setState(() {
+          _selectedTabIndex = 1;
+        });
+        
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          context.showErrorNotification(
+            errorData['message'] ?? 'Error al actualizar la cita',
+            actionLabel: 'Reintentar',
+            onAction: () => _actualizarCita(),
+          );
+        } catch (e) {
+          context.showErrorNotification('Error inesperado del servidor');
+        }
+      }
+    } on TimeoutException {
+      context.showErrorNotification(
+        'Tiempo de espera agotado',
+        actionLabel: 'Reintentar',
+        onAction: () => _actualizarCita(),
+      );
+    } catch (e) {
+      context.showErrorNotification(
+        'Error de conexión. Verifica tu internet',
+        actionLabel: 'Reintentar',
+        onAction: () => _actualizarCita(),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _cancelarCita(String citaId) async {
+    // Mostrar confirmación
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Cancelar Cita'),
+          ],
+        ),
+        content: const Text('¿Estás seguro de que deseas cancelar esta cita?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sí, Cancelar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final String? token = await AuthService.getToken();
+      if (token == null) {
+        context.showErrorNotification('Sesión expirada');
+        return;
+      }
+
+      final response = await http.delete(
+        Uri.parse('https://patitas-care.onrender.com/citas/$citaId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        // Cancelar notificaciones
+        await NotificationService.cancelarNotificacionesCita(citaId);
+        
+        context.showSuccessNotification('Cita cancelada correctamente');
+        await _cargarCitas();
+      } else {
+        final errorData = json.decode(response.body);
+        context.showErrorNotification(
+          errorData['message'] ?? 'Error al cancelar la cita',
+        );
+      }
+    } catch (e) {
+      context.showErrorNotification('Error de conexión');
+    }
+  }
+
+  Future<void> _marcarComoCompletada(String citaId) async {
+    try {
+      final String? token = await AuthService.getToken();
+      if (token == null) {
+        context.showErrorNotification('Sesión expirada');
+        return;
+      }
+
+      final response = await http.patch(
+        Uri.parse('https://patitas-care.onrender.com/citas/$citaId/completar'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        context.showSuccessNotification('Cita marcada como completada');
+        await _cargarCitas();
+      } else {
+        final errorData = json.decode(response.body);
+        context.showErrorNotification(
+          errorData['message'] ?? 'Error al completar la cita',
+        );
+      }
+    } catch (e) {
+      context.showErrorNotification('Error de conexión');
+    }
+  }
+
+  void _iniciarEdicion(Map<String, dynamic> cita) {
+  try {
+    setState(() {
+      _isEditMode = true;
+      _editingCitaId = cita['id'];
+      _citaEditando = cita;
+      _selectedTabIndex = 0;
+      
+      _motivoController.text = cita['motivo'] ?? '';
+      
+      final mascotaNombre = cita['mascotaNombre'];
+      Map<String, dynamic>? mascotaEncontrada;
+      
+      try {
+        mascotaEncontrada = _mascotas.firstWhere(
+          (m) => m['nombre'] == mascotaNombre,
+        );
+        _selectedMascotaId = mascotaEncontrada['id'];
+      } catch (e) {
+        print('No se encontró la mascota: $mascotaNombre');
+        print('Mascotas disponibles: ${_mascotas.map((m) => m['nombre']).join(', ')}');
+        
+        // Fallback: usar la primera mascota disponible
+        if (_mascotas.isNotEmpty) {
+          _selectedMascotaId = _mascotas.first['id'];
+          context.showWarningNotification(
+            'No se encontró la mascota "$mascotaNombre". Se seleccionó "${_mascotas.first['nombre']}".'
+          );
+        } else {
+          _selectedMascotaId = null;
+          context.showErrorNotification('No hay mascotas disponibles');
+        }
+      }
+      
+      try {
+        final DateTime fechaCita = DateTime.parse(cita['fechaHora']);
+        _selectedDate = fechaCita;
+        _selectedTime = TimeOfDay.fromDateTime(fechaCita);
+      } catch (e) {
+        print('Error al parsear fecha: ${cita['fechaHora']}');
+        _selectedDate = DateTime.now();
+        _selectedTime = TimeOfDay.now();
+        context.showWarningNotification('Error al cargar la fecha. Se usará la fecha actual.');
+      }
+    });
+  } catch (e) {
+    print('Error en _iniciarEdicion: $e');
+    context.showErrorNotification('Error al cargar los datos de la cita');
+  }
+}
+
+  void _cancelarEdicion() {
+    setState(() {
+      _isEditMode = false;
+      _editingCitaId = null;
+      _citaEditando = null;
+    });
+    _limpiarCampos();
   }
 
   void _onSuccessComplete() {
@@ -790,7 +680,6 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                     ),
                   ),
                   
-                  // Estilo adicional para que se vea más limpio
                   entryModeIconColor: const Color(0xFF8B5CF6),
                 ),
               ),
@@ -812,6 +701,8 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     _motivoController.clear();
     setState(() {
       _selectedMascotaId = null;
+      _selectedDate = DateTime.now();
+      _selectedTime = TimeOfDay.now();
     });
   }
 
@@ -826,7 +717,7 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
 
   Color _getEstadoColor(String estado) {
     switch (estado.toUpperCase()) {
-      case 'AGENDADA':
+      case 'PENDIENTE':
         return Colors.blue;
       case 'COMPLETADA':
         return Colors.green;
@@ -837,105 +728,112 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     }
   }
 
+  List<Map<String, dynamic>> _getCitasFiltradas() {
+    if (_filtroEstado == 'TODAS') {
+      return _citas;
+    }
+    return _citas.where((cita) => cita['estado'] == _filtroEstado).toList();
+  }
+
   Widget _buildMascotaDropdown() {
-  return Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: _mascotas.isEmpty
-        ? Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Icon(Icons.pets, color: Color(0xFF6B7280)),
-                const SizedBox(width: 12),
-                const Text(
-                  'Cargando mascotas...',
-                  style: TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          )
-        : DropdownButtonFormField<String>(
-            value: _selectedMascotaId,
-            hint: const Row(
-              children: [
-                Icon(Icons.pets, color: Color(0xFF6B7280)),
-                SizedBox(width: 12),
-                Text(
-                  'Selecciona tu mascota',
-                  style: TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(
-                  color: Color(0xFF8B5CF6),
-                  width: 2,
-                ),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 16,
-              ),
-            ),
-            dropdownColor: Colors.white,
-            icon: const Icon(
-              Icons.arrow_drop_down,
-              color: Color(0xFF6B7280),
-            ),
-            isExpanded: true,
-            items: _mascotas.map<DropdownMenuItem<String>>((mascota) {
-              return DropdownMenuItem<String>(
-                value: mascota['id'],
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.pets,
-                      color: Color(0xFF8B5CF6),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      mascota['nombre'],
-                      style: const TextStyle(
-                        color: Color(0xFF1F2937),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                _selectedMascotaId = newValue;
-              });
-            },
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-  );
-}
+        ],
+      ),
+      child: _mascotas.isEmpty
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              child: const Row(
+                children: [
+                  Icon(Icons.pets, color: Color(0xFF6B7280)),
+                  SizedBox(width: 12),
+                  Text(
+                    'Cargando mascotas...',
+                    style: TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : DropdownButtonFormField<String>(
+              value: _selectedMascotaId,
+              hint: const Row(
+                children: [
+                  Icon(Icons.pets, color: Color(0xFF6B7280)),
+                  SizedBox(width: 12),
+                  Text(
+                    'Selecciona tu mascota',
+                    style: TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF8B5CF6),
+                    width: 2,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+              ),
+              dropdownColor: Colors.white,
+              icon: const Icon(
+                Icons.arrow_drop_down,
+                color: Color(0xFF6B7280),
+              ),
+              isExpanded: true,
+              items: _mascotas.map<DropdownMenuItem<String>>((mascota) {
+                return DropdownMenuItem<String>(
+                  value: mascota['id'],
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.pets,
+                        color: Color(0xFF8B5CF6),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        mascota['nombre'],
+                        style: const TextStyle(
+                          color: Color(0xFF1F2937),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedMascotaId = newValue;
+                });
+              },
+            ),
+    );
+  }
 
   Widget _buildTextField(
     TextEditingController controller,
@@ -988,12 +886,258 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
     );
   }
 
+  Widget _buildFiltroEstados() {
+    return Container(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _estadosDisponibles.length,
+        itemBuilder: (context, index) {
+          final estado = _estadosDisponibles[index];
+          final isSelected = _filtroEstado == estado;
+          
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(estado),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _filtroEstado = estado;
+                });
+              },
+              backgroundColor: Colors.white,
+              selectedColor: const Color(0xFF8B5CF6).withOpacity(0.2),
+              checkmarkColor: const Color(0xFF8B5CF6),
+              labelStyle: TextStyle(
+                color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF6B7280),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected ? const Color(0xFF8B5CF6) : Colors.grey.shade300,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCitaCard(Map<String, dynamic> cita) {
+    final String estado = cita['estado'];
+    final bool isCancelada = estado == 'CANCELADA';
+    final bool isPendiente = estado == 'PENDIENTE';
+    // ignore: unused_local_variable
+    final bool isCompletada = estado == 'COMPLETADA';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: isCancelada 
+            ? Border.all(color: Colors.red.withOpacity(0.3), width: 1)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getEstadoColor(estado).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    estado,
+                    style: TextStyle(
+                      color: _getEstadoColor(estado),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (isPendiente) ...[
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Color(0xFF6B7280)),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'editar':
+                          _iniciarEdicion(cita);
+                          break;
+                        case 'completar':
+                          _marcarComoCompletada(cita['id']);
+                          break;
+                        case 'cancelar':
+                          _cancelarCita(cita['id']);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'editar',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, color: Color(0xFF8B5CF6)),
+                            SizedBox(width: 8),
+                            Text('Editar'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'completar',
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text('Marcar completada'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'cancelar',
+                        child: Row(
+                          children: [
+                            Icon(Icons.cancel, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Cancelar'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else
+                  const Icon(
+                    Icons.pets,
+                    color: Color(0xFF8B5CF6),
+                    size: 20,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              cita['mascotaNombre'],
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isCancelada 
+                    ? const Color(0xFF6B7280) 
+                    : const Color(0xFF1F2937),
+                decoration: isCancelada ? TextDecoration.lineThrough : null,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              cita['motivo'],
+              style: TextStyle(
+                fontSize: 16,
+                color: isCancelada 
+                    ? const Color(0xFF9CA3AF) 
+                    : const Color(0xFF6B7280),
+                decoration: isCancelada ? TextDecoration.lineThrough : null,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time,
+                  color: Colors.grey[500],
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatearFecha(cita['fechaHora']),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            if (cita['veterinarioNombre'] != 'No asignado') ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.local_hospital,
+                    color: Colors.grey[500],
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Dr. ${cita['veterinarioNombre']}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAgendarTab() {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
+          
+          // Header para modo edición
+          if (_isEditMode) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF8B5CF6), width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit, color: Color(0xFF8B5CF6)),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Editando cita',
+                      style: TextStyle(
+                        color: Color(0xFF8B5CF6),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _cancelarEdicion,
+                    child: const Text('Cancelar'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           
           // Calendario
           Container(
@@ -1127,7 +1271,7 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isLoading ? null : _agendarCita,
+              onPressed: _isLoading ? null : (_isEditMode ? _actualizarCita : _agendarCita),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8B5CF6),
                 foregroundColor: Colors.white,
@@ -1148,9 +1292,9 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text(
-                      'Agendar Cita',
-                      style: TextStyle(
+                  : Text(
+                      _isEditMode ? 'Actualizar Cita' : 'Agendar Cita',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1164,158 +1308,74 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
   }
 
   Widget _buildCitasTab() {
-    return _isLoadingCitas
-        ? const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
-            ),
-          )
-        : _citas.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 64,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No tienes citas programadas',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Agenda tu primera cita usando la pestaña anterior',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[500],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _cargarCitas,
-                child: ListView.builder(
-                  itemCount: _citas.length,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemBuilder: (context, index) {
-                    final cita = _citas[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
+    final citasFiltradas = _getCitasFiltradas();
+    
+    return Column(
+      children: [
+        // Filtros de estado
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: _buildFiltroEstados(),
+        ),
+        const SizedBox(height: 8),
+        
+        // Lista de citas
+        Expanded(
+          child: _isLoadingCitas
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
+                  ),
+                )
+              : citasFiltradas.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _filtroEstado == 'TODAS' 
+                                ? 'No tienes citas programadas'
+                                : 'No tienes citas con estado $_filtroEstado',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _filtroEstado == 'TODAS' 
+                                ? 'Agenda tu primera cita usando la pestaña anterior'
+                                : 'Cambia el filtro para ver otras citas',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[500],
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getEstadoColor(cita['estado']).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    cita['estado'],
-                                    style: TextStyle(
-                                      color: _getEstadoColor(cita['estado']),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const Spacer(),
-                                Icon(
-                                  Icons.pets,
-                                  color: const Color(0xFF8B5CF6),
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              cita['mascotaNombre'],
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1F2937),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              cita['motivo'],
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time,
-                                  color: Colors.grey[500],
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _formatearFecha(cita['fechaHora']),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (cita['veterinarioNombre'] != 'No asignado') ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.local_hospital,
-                                    color: Colors.grey[500],
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Dr. ${cita['veterinarioNombre']}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _cargarCitas,
+                      child: ListView.builder(
+                        itemCount: citasFiltradas.length,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemBuilder: (context, index) {
+                          final cita = citasFiltradas[index];
+                          return _buildCitaCard(cita);
+                        },
                       ),
-                    );
-                  },
-                ),
-              );
+                    ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -1351,7 +1411,7 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                         onPressed: () {
                           Navigator.pushReplacement(
                             context,
-                            MaterialPageRoute(builder: (context) => InicioPage()),
+                            MaterialPageRoute(builder: (context) => const InicioPage()),
                           );
                         },
                         icon: const Icon(
@@ -1410,7 +1470,7 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.add_circle_outline,
+                                _isEditMode ? Icons.edit : Icons.add_circle_outline,
                                 color: _selectedTabIndex == 0
                                     ? Colors.white
                                     : const Color(0xFF6B7280),
@@ -1418,7 +1478,7 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Agendar',
+                                _isEditMode ? 'Editar' : 'Agendar',
                                 style: TextStyle(
                                   color: _selectedTabIndex == 0
                                       ? Colors.white
@@ -1435,6 +1495,9 @@ class _NotificacionCalendarPageState extends State<NotificacionCalendarPage> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
+                          if (_isEditMode) {
+                            _cancelarEdicion();
+                          }
                           setState(() {
                             _selectedTabIndex = 1;
                           });

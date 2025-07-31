@@ -113,7 +113,7 @@ class _AjustesPageState extends State<AjustesPage> {
   }
 
   Future<void> _abrirFormularioFeedback() async {
-    const String urlFormulario = 'https://forms.google.com/tu-formulario-aqui'; // Reemplazar con la URL real
+    const String urlFormulario = 'https://forms.gle/p1Ubf8Zjumvm4Wbu7'; // Reemplazar con la URL real
     
     try {
       final Uri url = Uri.parse(urlFormulario);
