@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'registro_page.dart';
 import 'login_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'splash_page.dart';
+
 void main() {
   runApp(const PatitasCareApp());
 }
@@ -26,7 +28,7 @@ class PatitasCareApp extends StatelessWidget {
       ],
       locale: const Locale('es', 'ES'), // Idioma por defecto
       
-      home: const WelcomeScreen(),
+      home: const SplashPage(),
     );
   }
 }
